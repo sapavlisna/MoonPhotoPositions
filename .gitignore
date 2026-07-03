@@ -1,0 +1,23 @@
+# .NET / MAUI build výstupy
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.binlog
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# APK / balíčky
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# pracovní / zálohy
+.backup_precam/
+out/
+tmp/

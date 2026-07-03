@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MoonApp.Maui.SettingsPage"
+             Title="Nastavení">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="12">
+            <Label Text="Datum" />
+            <DatePicker x:Name="DateP" Format="dd.MM.yyyy" />
+            <Label Text="Okruh [m]" />
+            <Entry x:Name="RadiusE" Keyboard="Numeric" />
+            <Label Text="Min. okruh [m] (mezikruží)" />
+            <Entry x:Name="RadMinE" Keyboard="Numeric" />
+            <Label Text="Krok mřížky [m] (menší = jemnější, pomalejší)" />
+            <Entry x:Name="ResE" Keyboard="Numeric" />
+            <Label Text="Výška očí [m]" />
+            <Entry x:Name="EyeE" Keyboard="Numeric" />
+            <Label Text="Min. výška objektu [m]" />
+            <Entry x:Name="SubjE" Keyboard="Numeric" />
+            <Label Text="Tolerance azimutu [°]" />
+            <Entry x:Name="AzTolE" Keyboard="Numeric" />
+            <Label Text="Výškový pás Měsíce [°]" />
+            <Entry x:Name="AltBandE" Keyboard="Numeric" />
+            <Button Text="Uložit" Clicked="OnSave" Margin="0,10,0,0" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

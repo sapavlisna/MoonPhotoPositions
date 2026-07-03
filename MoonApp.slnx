@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="MoonApp.Core.Tests/MoonApp.Core.Tests.csproj" />
+  <Project Path="MoonApp.Core/MoonApp.Core.csproj" />
+  <Project Path="MoonApp.Maui/MoonApp.Maui.csproj" />
+</Solution>

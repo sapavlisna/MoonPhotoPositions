@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:tk="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="MoonApp.Maui.ArPage"
+             Shell.NavBarIsVisible="False"
+             Title="AR — Měsíc" BackgroundColor="Black">
+
+    <Grid x:Name="Root">
+        <tk:CameraView x:Name="Cam" IsVisible="False" />
+        <!-- SKCanvasView překryv se vkládá v code-behind nad kameru -->
+
+        <VerticalStackLayout VerticalOptions="Start" Margin="8,8" Spacing="6">
+            <Border HorizontalOptions="Fill" Padding="10,6" BackgroundColor="#99000000" StrokeThickness="0">
+                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                <Label x:Name="Status" TextColor="White" FontSize="12" Text="Načítám senzory…" />
+            </Border>
+            <Border x:Name="OverlayCtl" IsVisible="False" HorizontalOptions="Fill" Padding="10,4"
+                    BackgroundColor="#99000000" StrokeThickness="0">
+                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="🎨 překryv" TextColor="#cde" FontSize="12" VerticalOptions="Center" />
+                    <Slider Grid.Column="1" x:Name="OverlaySlider" Minimum="0" Maximum="1" Value="0.55"
+                            ValueChanged="OnOverlayChanged" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout VerticalOptions="End" Padding="10" Spacing="8" BackgroundColor="#B0000000">
+            <Label x:Name="TimeLbl" TextColor="#cde" FontSize="13" HorizontalOptions="Center"
+                   Text="🕒 —" />
+            <Slider x:Name="TimeSlider" Minimum="0" Maximum="0" ValueChanged="OnTimeChanged" />
+            <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="6">
+                <Button x:Name="MoveBtn" Grid.Column="0" Text="🧭 Kompas" FontSize="12" Padding="0"
+                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnToggleMove" />
+                <Button x:Name="CamBtn" Grid.Column="1" Text="🎨 Grafika" FontSize="12" Padding="0"
+                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnToggleCamera" />
+                <Button x:Name="GpsBtn" Grid.Column="2" Text="📍 GPS" FontSize="12" Padding="0"
+                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnGps" />
+                <Button x:Name="CalBtn" Grid.Column="3" Text="🎯 Kalib." FontSize="12" Padding="0"
+                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnCalibrate" />
+                <Button x:Name="CloseBtn" Grid.Column="4" Text="✕ Zpět" FontSize="12" Padding="0"
+                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnClose" />
+            </Grid>
+        </VerticalStackLayout>
+    </Grid>
+
+</ContentPage>
