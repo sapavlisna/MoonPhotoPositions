@@ -7,8 +7,8 @@
              Title="AR — Měsíc" BackgroundColor="Black">
 
     <Grid x:Name="Root">
-        <tk:CameraView x:Name="Cam" IsVisible="False" />
-        <!-- SKCanvasView překryv se vkládá v code-behind nad kameru -->
+        <!-- CameraView se vytváří lazy v code-behind až při zapnutí kamery;
+             SKCanvasView překryv se vkládá v code-behind -->
 
         <VerticalStackLayout VerticalOptions="Start" Margin="8,8" Spacing="6">
             <Border HorizontalOptions="Fill" Padding="10,6" BackgroundColor="#99000000" StrokeThickness="0">

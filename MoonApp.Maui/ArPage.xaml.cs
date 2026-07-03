@@ -1,4 +1,5 @@
 using System.Numerics;
+using CommunityToolkit.Maui.Views;
 using MoonApp.Core;
 using SkiaSharp;
 using SkiaSharp.Views.Maui;
@@ -14,6 +15,7 @@ public partial class ArPage : ContentPage
     double _obsLat, _obsLon;
 
     SKCanvasView _overlay = null!;
+    CameraView? _cam;   // lazy — vytvoří se až při zapnutí kamery
 
     ViewpointResult _vp;
     List<MoonSample> _track;
@@ -47,7 +49,7 @@ public partial class ArPage : ContentPage
 
         _overlay = new SKCanvasView { InputTransparent = true };
         _overlay.PaintSurface += OnPaint;
-        Root.Children.Insert(1, _overlay);   // nad CameraView (index 0)
+        Root.Children.Insert(0, _overlay);   // spodní vrstva (kamera se případně vloží pod něj)
 
         var pan = new PanGestureRecognizer();
         pan.PanUpdated += OnPan;
@@ -98,7 +100,7 @@ public partial class ArPage : ContentPage
             OrientationSensor.Default.Stop();
             OrientationSensor.Default.ReadingChanged -= OnOrientation;
         }
-        if (_cameraOn) { try { Cam.StopCameraPreview(); } catch { } }
+        if (_cameraOn) { try { _cam?.StopCameraPreview(); } catch { } }
         _nowTimer?.Stop(); _nowTimer = null;
     }
 
@@ -184,24 +186,38 @@ public partial class ArPage : ContentPage
             var st = await Permissions.CheckStatusAsync<Permissions.Camera>();
             if (st != PermissionStatus.Granted) st = await Permissions.RequestAsync<Permissions.Camera>();
             if (st != PermissionStatus.Granted) { Status.Text = "Bez povolení kamery — zůstává grafika."; return; }
+
+            // CameraView vytvoříme až teď (pod overlay) — vstup do AR tak kameru neotvírá
+            if (_cam is null)
+            {
+                _cam = new CameraView();
+                Root.Children.Insert(0, _cam);   // pod _overlay
+            }
+            _cam.IsVisible = true;
+            CamBtn.Text = "📷 Kamera";
+            Status.Text = "Spouštím kameru…";
             try
             {
-                Cam.IsVisible = true;
-                await Cam.StartCameraPreview(CancellationToken.None);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+                await _cam.StartCameraPreview(cts.Token);
                 _cameraOn = true;
-                CamBtn.Text = "📷 Kamera";
                 OverlayCtl.IsVisible = true;
+                UpdateStatus();
             }
             catch (Exception ex)
             {
-                Status.Text = "Kamera se nespustila: " + ex.Message;
-                Cam.IsVisible = false;
+                // na některých telefonech (MIUI) se kamera nezkonfiguruje včas → zpět do grafiky
+                _cameraOn = false;
+                _cam.IsVisible = false;
+                CamBtn.Text = "🎨 Grafika";
+                OverlayCtl.IsVisible = false;
+                Status.Text = "Kameru se nepodařilo spustit (" + (ex is OperationCanceledException ? "timeout" : ex.Message) + ") — grafika.";
             }
         }
         else
         {
-            try { Cam.StopCameraPreview(); } catch { }
-            Cam.IsVisible = false;
+            try { _cam?.StopCameraPreview(); } catch { }
+            if (_cam is not null) _cam.IsVisible = false;
             _cameraOn = false;
             CamBtn.Text = "🎨 Grafika";
             OverlayCtl.IsVisible = false;
@@ -276,7 +292,8 @@ public partial class ArPage : ContentPage
     {
         var c = e.Surface.Canvas;
         int W = e.Info.Width, H = e.Info.Height;
-        double heading = Heading, pitch = Pitch;
+        double heading = Heading;
+        double pitch = Math.Clamp(Pitch, -80, 80);   // proti divergenci projekce u ±90° (telefon naplocho)
         double vFov = HFov * H / W;
 
         if (_cameraOn) c.Clear(SKColors.Transparent);
@@ -354,8 +371,9 @@ public partial class ArPage : ContentPage
         {
             double az = heading + d;
             var (x, y, _) = Ar.Project(az, HorizonAt(az), heading, pitch, HFov, vFov, W, H);
-            if (!started) { path.MoveTo((float)x, (float)y); started = true; }
-            else path.LineTo((float)x, (float)y);
+            float yc = (float)Math.Clamp(y, -2.0 * H, 2.0 * H);   // ať path nediverguje mimo obraz
+            if (!started) { path.MoveTo((float)x, yc); started = true; }
+            else path.LineTo((float)x, yc);
         }
         path.LineTo(W, H); path.LineTo(0, H); path.Close();
         byte terrA = (byte)(_cameraOn ? Math.Clamp(_overlayAlpha, 0, 1) * 255 : 255);
