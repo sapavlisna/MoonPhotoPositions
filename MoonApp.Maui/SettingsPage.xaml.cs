@@ -19,6 +19,18 @@ public partial class SettingsPage : ContentPage
         AzTolE.Text = Fmt(s.AzTol);
         AltBandE.Text = Fmt(s.AltBand);
         VersionLbl.Text = $"MoonApp {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+
+        ThemeP.SelectedIndex = Preferences.Default.Get("theme", "system") switch
+        {
+            "light" => 1, "dark" => 2, _ => 0,
+        };
+    }
+
+    void OnThemeChanged(object? sender, EventArgs e)
+    {
+        string t = ThemeP.SelectedIndex switch { 1 => "light", 2 => "dark", _ => "system" };
+        Preferences.Default.Set("theme", t);
+        if (Application.Current is { } app) app.UserAppTheme = App.ThemeFromPref(t);
     }
 
     async void OnCheckUpdate(object? sender, EventArgs e)

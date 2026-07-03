@@ -24,6 +24,18 @@
             <Button Text="Uložit" Clicked="OnSave" Margin="0,10,0,0" />
 
             <BoxView HeightRequest="1" Color="#40808080" Margin="0,12,0,4" />
+            <Label Text="Motiv aplikace" />
+            <Picker x:Name="ThemeP" SelectedIndexChanged="OnThemeChanged">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>Podle systému</x:String>
+                        <x:String>Světlý</x:String>
+                        <x:String>Tmavý</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+
+            <BoxView HeightRequest="1" Color="#40808080" Margin="0,12,0,4" />
             <Button x:Name="UpdateBtn" Text="Zkontrolovat aktualizace" Clicked="OnCheckUpdate" />
             <Label x:Name="VersionLbl" FontSize="12" TextColor="#888" HorizontalOptions="Center" />
         </VerticalStackLayout>
