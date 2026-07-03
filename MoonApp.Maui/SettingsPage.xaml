@@ -22,6 +22,10 @@
             <Label Text="Výškový pás Měsíce [°]" />
             <Entry x:Name="AltBandE" Keyboard="Numeric" />
             <Button Text="Uložit" Clicked="OnSave" Margin="0,10,0,0" />
+
+            <BoxView HeightRequest="1" Color="#40808080" Margin="0,12,0,4" />
+            <Button x:Name="UpdateBtn" Text="Zkontrolovat aktualizace" Clicked="OnCheckUpdate" />
+            <Label x:Name="VersionLbl" FontSize="12" TextColor="#888" HorizontalOptions="Center" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

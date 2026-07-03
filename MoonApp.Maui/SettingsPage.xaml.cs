@@ -18,6 +18,14 @@ public partial class SettingsPage : ContentPage
         SubjE.Text = Fmt(s.SubjectMinH);
         AzTolE.Text = Fmt(s.AzTol);
         AltBandE.Text = Fmt(s.AltBand);
+        VersionLbl.Text = $"MoonApp {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+    }
+
+    async void OnCheckUpdate(object? sender, EventArgs e)
+    {
+        UpdateBtn.IsEnabled = false;
+        try { await UpdateService.CheckAsync(this, manual: true); }
+        finally { UpdateBtn.IsEnabled = true; }
     }
 
     async void OnSave(object? sender, EventArgs e)

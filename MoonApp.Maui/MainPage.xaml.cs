@@ -55,7 +55,6 @@ public partial class MainPage : ContentPage
         DateSel.Date = _settings.Date;
     }
 
-    const string GhOwnerRepo = "sapavlisna/MoonPhotoPositions";
     bool _updateChecked;
 
     protected override void OnAppearing()
@@ -63,44 +62,7 @@ public partial class MainPage : ContentPage
         base.OnAppearing();
         if (DateSel.Date != _settings.Date) DateSel.Date = _settings.Date;
         _ = StartLocationAsync();
-        if (!_updateChecked) { _updateChecked = true; _ = CheckForUpdateAsync(); }
-    }
-
-    async Task CheckForUpdateAsync()
-    {
-        try
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("MoonApp");
-            var json = await http.GetStringAsync(
-                $"https://api.github.com/repos/{GhOwnerRepo}/releases/latest");
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var latest = ParseVer(root.TryGetProperty("tag_name", out var t) ? t.GetString() : null);
-            var current = ParseVer(AppInfo.Current.VersionString);
-            if (latest is null || current is null || latest <= current) return;
-
-            // preferuj přímý odkaz na APK, jinak stránku release
-            string url = root.TryGetProperty("html_url", out var h) ? h.GetString() ?? "" : "";
-            if (root.TryGetProperty("assets", out var assets))
-                foreach (var a in assets.EnumerateArray())
-                    if ((a.TryGetProperty("name", out var n) ? n.GetString() : null)?.EndsWith(".apk") == true)
-                    { url = a.GetProperty("browser_download_url").GetString() ?? url; break; }
-
-            string tag = root.GetProperty("tag_name").GetString() ?? "";
-            bool ok = await DisplayAlert("Aktualizace dostupná",
-                $"Je k dispozici verze {tag} (máš {AppInfo.Current.VersionString}). Stáhnout?",
-                "Stáhnout", "Později");
-            if (ok && !string.IsNullOrEmpty(url)) await Launcher.OpenAsync(url);
-        }
-        catch { /* offline / API limit → tiše ignoruj */ }
-    }
-
-    static Version? ParseVer(string? s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return null;
-        s = s.Trim().TrimStart('v', 'V').Trim();
-        return Version.TryParse(s, out var v) ? v : null;
+        if (!_updateChecked) { _updateChecked = true; _ = UpdateService.CheckAsync(this, manual: false); }
     }
 
     async Task StartLocationAsync()
