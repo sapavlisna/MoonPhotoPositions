@@ -31,7 +31,7 @@
             <Button Text="+" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="20" Clicked="OnZoomIn" />
             <Button Text="–" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="20" Clicked="OnZoomOut" />
             <Button x:Name="GpsBtn" Text="📍" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="18"
-                    Clicked="OnGpsViewpoint" ToolTipProperties.Text="Moje poloha jako stanoviště" />
+                    Clicked="OnCenterOnMe" ToolTipProperties.Text="Vycentrovat na moji polohu" />
         </VerticalStackLayout>
 
         <!-- spodní část: náhledová sekce + akční panel -->

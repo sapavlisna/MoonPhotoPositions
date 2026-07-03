@@ -21,6 +21,8 @@ public partial class MainPage : ContentPage
     MapControl _map = null!;
     MemoryLayer? _covLayer, _objLayer, _obsLayer, _lineLayer, _meLayer;
     bool _locStarted;
+    double _meLat, _meLon, _heading;
+    bool _hasMe;
     ILayer[] _bases = null!;
     static readonly string[] BaseNames = ["Mapa", "Satelit", "Ortofoto"];
     int _baseIdx;
@@ -62,7 +64,14 @@ public partial class MainPage : ContentPage
         base.OnAppearing();
         if (DateSel.Date != _settings.Date) DateSel.Date = _settings.Date;
         _ = StartLocationAsync();
+        StartCompass();
         if (!_updateChecked) { _updateChecked = true; _ = UpdateService.CheckAsync(this, manual: false); }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        StopCompass();
     }
 
     async Task StartLocationAsync()
@@ -92,21 +101,59 @@ public partial class MainPage : ContentPage
         catch { /* sledování nedostupné → zůstane jednorázová poloha */ }
     }
 
+    void StartCompass()
+    {
+        if (!Compass.Default.IsSupported || Compass.Default.IsMonitoring) return;
+        Compass.Default.ReadingChanged += OnCompass;
+        Compass.Default.Start(SensorSpeed.UI, applyLowPassFilter: true);
+    }
+
+    void StopCompass()
+    {
+        if (Compass.Default.IsMonitoring)
+        {
+            Compass.Default.Stop();
+            Compass.Default.ReadingChanged -= OnCompass;
+        }
+    }
+
+    void OnCompass(object? sender, CompassChangedEventArgs e)
+    {
+        double h = e.Reading.HeadingMagneticNorth;
+        if (Math.Abs(((h - _heading + 540) % 360) - 180) < 3) return;   // throttle na ~3°
+        _heading = h;
+        if (_hasMe) RedrawMe();
+    }
+
     void UpdateMe(Location loc)
     {
-        var (x, y) = SphericalMercator.FromLonLat(loc.Longitude, loc.Latitude);
+        _meLat = loc.Latitude; _meLon = loc.Longitude; _hasMe = true;
+        RedrawMe();
+    }
+
+    void RedrawMe()
+    {
+        var (x, y) = SphericalMercator.FromLonLat(_meLon, _meLat);
         Remove(ref _meLayer);
-        _meLayer = new MemoryLayer("me")
+        var pf = new PointFeature(new MPoint(x, y));
+        // kužel/šipka směru telefonu (kompas)
+        pf.Styles.Add(new SymbolStyle
         {
-            Features = [new PointFeature(new MPoint(x, y))],
-            Style = new SymbolStyle
-            {
-                SymbolType = SymbolType.Ellipse,
-                Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(66, 133, 244)),
-                Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255), 3),
-                SymbolScale = 0.55,
-            },
-        };
+            SymbolType = SymbolType.Triangle,
+            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(66, 133, 244, 150)),
+            Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255, 180), 1),
+            SymbolScale = 1.2,
+            SymbolRotation = _heading,
+        });
+        // modrá tečka polohy
+        pf.Styles.Add(new SymbolStyle
+        {
+            SymbolType = SymbolType.Ellipse,
+            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(66, 133, 244)),
+            Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255), 3),
+            SymbolScale = 0.5,
+        });
+        _meLayer = new MemoryLayer("me") { Features = [pf], Style = null };
         _map.Map.Layers.Add(_meLayer);   // vždy navrch
         _map.Refresh();
     }
@@ -507,21 +554,21 @@ public partial class MainPage : ContentPage
             vp, _settings, DsmCache));
     }
 
-    async void OnGpsViewpoint(object? sender, EventArgs e)
+    async void OnCenterOnMe(object? sender, EventArgs e)
     {
-        if (!_hasObj) { InfoLabel.Text = "Nejdřív vyber ① Objekt (zaměř na křížek)."; return; }
-        SetBusy(true, "Zjišťuji GPS polohu…");
-        try
+        Location? loc = _hasMe ? new Location(_meLat, _meLon) : null;
+        if (loc is null)
         {
-            var loc = await Geolocation.Default.GetLocationAsync(
-                new GeolocationRequest(GeolocationAccuracy.Best, TimeSpan.FromSeconds(12)));
-            if (loc is null) { InfoLabel.Text = "GPS poloha nedostupná."; SetBusy(false); return; }
-            var (mx, my) = SphericalMercator.FromLonLat(loc.Longitude, loc.Latitude);
-            _map.Map.Navigator.CenterOnAndZoomTo(new MPoint(mx, my), _map.Map.Navigator.Viewport.Resolution);
-            SetBusy(false);
-            await PickViewpoint(loc.Latitude, loc.Longitude);
+            try
+            {
+                loc = await Geolocation.Default.GetLocationAsync(
+                    new GeolocationRequest(GeolocationAccuracy.Best, TimeSpan.FromSeconds(10)));
+            }
+            catch { /* níže ošetřeno */ }
         }
-        catch (Exception ex) { InfoLabel.Text = "GPS chyba: " + ex.Message; SetBusy(false); }
+        if (loc is null) { InfoLabel.Text = "GPS poloha zatím není k dispozici."; return; }
+        var (mx, my) = SphericalMercator.FromLonLat(loc.Longitude, loc.Latitude);
+        _map.Map.Navigator.CenterOnAndZoomTo(new MPoint(mx, my), _map.Map.Navigator.Viewport.Resolution, 400);
     }
 
     void OnChartPan(object? sender, PanUpdatedEventArgs e)
