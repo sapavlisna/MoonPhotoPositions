@@ -50,6 +50,26 @@ public partial class MainPage : ContentPage
     // perzistentní cache výškopisu (přežije čištění systémové cache → offline po stažení)
     static string DsmCache => Path.Combine(FileSystem.AppDataDirectory, "dsm");
 
+    // Směrový kužel GPS polohy (SVG s gradientem) — apex uprostřed, otáčí se kompasem.
+    static string MeConePath => Path.Combine(FileSystem.AppDataDirectory, "mecone.svg");
+    static bool _coneReady;
+    static string MeConeUri()
+    {
+        if (!_coneReady || !File.Exists(MeConePath))
+        {
+            File.WriteAllText(MeConePath,
+                "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>" +
+                "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>" +
+                "<stop offset='0' stop-color='#38BDF8' stop-opacity='0'/>" +
+                "<stop offset='0.55' stop-color='#38BDF8' stop-opacity='0.35'/>" +
+                "<stop offset='1' stop-color='#38BDF8' stop-opacity='0.85'/>" +
+                "</linearGradient></defs>" +
+                "<path d='M50 50 L18 8 Q50 -2 82 8 Z' fill='url(#g)'/></svg>");
+            _coneReady = true;
+        }
+        return new Uri(MeConePath).AbsoluteUri;
+    }
+
     // theme-aware barva (honoruje UserAppTheme override)
     static Microsoft.Maui.Graphics.Color ThemeCol(string light, string dark) =>
         Microsoft.Maui.Graphics.Color.FromArgb(
@@ -172,13 +192,11 @@ public partial class MainPage : ContentPage
             Outline = new Pen(new Mapsui.Styles.Color(56, 189, 248, 90), 1),
             SymbolScale = 1.6,
         });
-        // kužel/šipka směru telefonu (kompas)
-        pf.Styles.Add(new SymbolStyle
+        // směrový kužel (kompas) — poloprůhledný gradient jako v mapových appkách
+        pf.Styles.Add(new ImageStyle
         {
-            SymbolType = SymbolType.Triangle,
-            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(56, 189, 248, 170)),
-            Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255, 200), 1),
-            SymbolScale = 1.2,
+            Image = MeConeUri(),
+            SymbolScale = 1.1,
             SymbolRotation = _heading,
         });
         // světle modrá tečka polohy (#38BDF8)
@@ -204,6 +222,9 @@ public partial class MainPage : ContentPage
         var pinch = new PinchGestureRecognizer();
         pinch.PinchUpdated += OnChartPinch;
         Chart.GestureRecognizers.Add(pinch);
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += OnChartTap;
+        Chart.GestureRecognizers.Add(tap);
     }
 
     void BuildMap()
@@ -606,6 +627,27 @@ public partial class MainPage : ContentPage
         if (_track.Count == 0) return;
         _timeIdx = Math.Clamp((int)Math.Round(e.NewValue), 0, _track.Count - 1);
         UpdateMoon();
+    }
+
+    // Klik do grafu → nastaví čas na vzorek dráhy nejbližší kliknutému azimutu (X).
+    void OnChartTap(object? sender, TappedEventArgs e)
+    {
+        if (_vp is null || _track.Count == 0 || Chart.Width <= 0) return;
+        if (e.GetPosition(Chart) is not { } p) return;
+        double frac = Math.Clamp(p.X / Chart.Width, 0, 1);
+        double az = _winA0 + frac * (_winA1 - _winA0);
+
+        int best = -1; double bestD = double.MaxValue;
+        for (int i = 0; i < _track.Count; i++)
+        {
+            if (_track[i].Az < _winA0 || _track[i].Az > _winA1) continue;
+            double d = Math.Abs(_track[i].Az - az);
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        if (best < 0) return;
+        _timeIdx = best;
+        TimeSlider.Value = best;   // posune spodní posuvník (a přes OnTimeChanged i graf)
+        UpdateMoon();              // jistota překreslení i když se hodnota nezměnila
     }
 
     void OnPlay(object? sender, EventArgs e)
