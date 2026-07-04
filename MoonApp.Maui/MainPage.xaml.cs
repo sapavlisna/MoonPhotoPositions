@@ -542,6 +542,7 @@ public partial class MainPage : ContentPage
     void SetupChartWindow(ViewpointResult vp)
     {
         _track = [.. vp.Track];
+        InvalidateChartBg();
         FitWindow();
         _timeIdx = DefaultIdx();
         TimeSlider.Maximum = Math.Max(0, _track.Count - 1);
@@ -650,7 +651,7 @@ public partial class MainPage : ContentPage
 
     // Tažení spodního panelu úchytem: dolů = schovat (odkryje mapu), nahoru = zobrazit.
     // Po schování zůstane viditelný pruh s úchytem (peek), aby šel snadno vytáhnout zpět.
-    const double SheetPeek = 64;
+    const double SheetPeek = 42;
     double SheetHideMax => Math.Max(0, Sheet.Height - SheetPeek);
 
     void OnSheetPan(object? sender, PanUpdatedEventArgs e)
@@ -737,6 +738,14 @@ public partial class MainPage : ContentPage
     }
 
     // ---------- horizont (SkiaSharp) ----------
+    // Statická část grafu (terén, dráha, svislice, popisky) se cachuje do SKPicture
+    // a překresluje jen při změně výřezu/velikosti/dat. Posun času pak jen dokreslí Měsíc.
+    SKPicture? _chartBg;
+    int _bgW, _bgH;
+    double _bgA0 = double.NaN, _bgA1 = double.NaN, _bgElMax = 8;
+
+    void InvalidateChartBg() { _chartBg?.Dispose(); _chartBg = null; }
+
     void OnPaintHorizon(object? sender, SKPaintSurfaceEventArgs e)
     {
         var canvas = e.Surface.Canvas;
@@ -746,13 +755,48 @@ public partial class MainPage : ContentPage
         int W = e.Info.Width, H = e.Info.Height;
         double a0 = _winA0, a1 = _winA1;
         if (a1 - a0 < 1e-6) return;
+
+        if (_chartBg is null || _bgW != W || _bgH != H || _bgA0 != a0 || _bgA1 != a1)
+            RecordChartBg(vp, W, H, a0, a1);
+        if (_chartBg is not null) canvas.DrawPicture(_chartBg);
+
+        // aktuální poloha Měsíce (dle času) — jediná část kreslená každý snímek
+        const double elMin = -3;
+        double elMax = _bgElMax;
+        if (_track.Count > 0 && _timeIdx < _track.Count)
+        {
+            var m = _track[_timeIdx];
+            if (m.Az >= a0 && m.Az <= a1)
+            {
+                float mx = (float)((m.Az - a0) / (a1 - a0) * W);
+                float my = (float)(H - (m.Alt - elMin) / (elMax - elMin) * H);
+                using var guide = new SKPaint { Color = new SKColor(255, 245, 200, 90), StrokeWidth = 1.5f, IsAntialias = true };
+                canvas.DrawLine(mx, 0, mx, my, guide);
+                using var glow = new SKPaint { Color = new SKColor(255, 240, 180, 90), IsAntialias = true };
+                canvas.DrawCircle(mx, my, 18, glow);
+                using var glow2 = new SKPaint { Color = new SKColor(255, 240, 180, 130), IsAntialias = true };
+                canvas.DrawCircle(mx, my, 11, glow2);
+                using var moon = new SKPaint { Color = new SKColor(255, 244, 205), IsAntialias = true };
+                canvas.DrawCircle(mx, my, 8, moon);
+                using var ring = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 2.5f, IsAntialias = true };
+                canvas.DrawCircle(mx, my, 8.5f, ring);
+            }
+        }
+    }
+
+    void RecordChartBg(ViewpointResult vp, int W, int H, double a0, double a1)
+    {
         double elMin = -3, elMax = 6;
         foreach (var (az, el) in vp.Horizon) if (az >= a0 && az <= a1 && el > elMax) elMax = el;
         foreach (var s in _track) if (s.Az >= a0 && s.Az <= a1 && s.Alt > elMax) elMax = s.Alt;
         elMax += 2;
+        _bgW = W; _bgH = H; _bgA0 = a0; _bgA1 = a1; _bgElMax = elMax;
 
         float X(double az) => (float)((az - a0) / (a1 - a0) * W);
         float Y(double el) => (float)(H - (el - elMin) / (elMax - elMin) * H);
+
+        using var rec = new SKPictureRecorder();
+        var canvas = rec.BeginRecording(new SKRect(0, 0, W, H));
 
         // silueta horizontu (#16351F)
         using var terr = new SKPaint { Color = new SKColor(22, 53, 31), IsAntialias = true };
@@ -786,33 +830,15 @@ public partial class MainPage : ContentPage
         using var tipp = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2 };
         if (_vpBearing >= a0 && _vpBearing <= a1) canvas.DrawCircle(X(_vpBearing), Y(vp.ElTargetDeg), 7, tipp);
 
-        // aktuální poloha Měsíce (dle času) — výrazná, aby byl posun v čase jasně vidět
-        if (_track.Count > 0 && _timeIdx < _track.Count)
-        {
-            var m = _track[_timeIdx];
-            if (m.Az >= a0 && m.Az <= a1)
-            {
-                float mx = X(m.Az), my = Y(m.Alt);
-                // vodicí svislice k markeru
-                using var guide = new SKPaint { Color = new SKColor(255, 245, 200, 90), StrokeWidth = 1.5f, IsAntialias = true };
-                canvas.DrawLine(mx, 0, mx, my, guide);
-                using var glow = new SKPaint { Color = new SKColor(255, 240, 180, 90), IsAntialias = true };
-                canvas.DrawCircle(mx, my, 18, glow);
-                using var glow2 = new SKPaint { Color = new SKColor(255, 240, 180, 130), IsAntialias = true };
-                canvas.DrawCircle(mx, my, 11, glow2);
-                using var moon = new SKPaint { Color = new SKColor(255, 244, 205), IsAntialias = true };
-                canvas.DrawCircle(mx, my, 8, moon);
-                using var ring = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 2.5f, IsAntialias = true };
-                canvas.DrawCircle(mx, my, 8.5f, ring);
-            }
-        }
-
         // popisky azimutu
         using var txt = new SKPaint { Color = new SKColor(124, 134, 152), IsAntialias = true };
         using var font = new SKFont { Size = 20 };
         canvas.DrawText($"{a0:0}°", 4, H - 6, SKTextAlign.Left, font, txt);
         canvas.DrawText($"{(a0 + a1) / 2:0}°", W / 2f, H - 6, SKTextAlign.Center, font, txt);
         canvas.DrawText($"{a1:0}°", W - 4, H - 6, SKTextAlign.Right, font, txt);
+
+        _chartBg?.Dispose();
+        _chartBg = rec.EndRecording();
     }
 
     static double HorizonAt((double Az, double El)[] prof, double az)

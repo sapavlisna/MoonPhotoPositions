@@ -177,6 +177,7 @@
                                FontSize="11" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
                         <Button Grid.Column="1" x:Name="ArBtn" Text="AR" Style="{StaticResource Ghost}"
+                                IsVisible="False"
                                 FontAttributes="Bold" FontSize="13" WidthRequest="52" HeightRequest="36" Padding="0"
                                 Clicked="OnOpenAr" />
                         <Button Grid.Column="2" x:Name="BigBtn" Text="⛶" Style="{StaticResource Ghost}"
