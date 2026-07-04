@@ -29,6 +29,8 @@ public partial class MainPage : ContentPage
     int _baseIdx;
 
     readonly PlannerSettings _settings = new();
+    int _moonClicks;                // 🥚 easter egg: 7× klik na logo
+    bool _visOnly;                  // režim „jen viditelnost objektu (bez Měsíce)"
     bool _hasObj;
     double _objLat, _objLon, _objTopZ;
     double _obsLat, _obsLon;        // poslední stanoviště
@@ -87,6 +89,23 @@ public partial class MainPage : ContentPage
     void UpdateDateLabelTop() =>
         DateLabelTop.Text = _settings.Date.ToString("ddd d.M.",
             System.Globalization.CultureInfo.GetCultureInfo("cs-CZ"));
+
+    // 🥚 7× klik na logo → pokrytí počítá jen viditelnost objektu z okolí (bez Měsíce).
+    void OnLogoTap(object? sender, TappedEventArgs e)
+    {
+        if (++_moonClicks < 7) return;
+        _moonClicks = 0;
+        _visOnly = !_visOnly;
+        bool dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        LogoImg.Source = _visOnly
+            ? (dark ? "ic_eye_d.png" : "ic_eye_l.png")
+            : (dark ? "ic_moon_d.png" : "ic_moon_l.png");
+        ShowAnswerUi(false);
+        InfoLabel.IsVisible = true;
+        InfoLabel.Text = _visOnly
+            ? "🥚 Režim: jen viditelnost objektu z okolí (bez Měsíce). Přepočítej ① Objekt."
+            : "Zpět k běžnému pokrytí (s Měsícem). Přepočítej ① Objekt.";
+    }
 
     async void OnOpenDatePicker(object? sender, TappedEventArgs e)
     {
@@ -307,7 +326,7 @@ public partial class MainPage : ContentPage
             var g = await Task.Run(() => Coverage.ComputeAsync(snap.Lat, snap.Lon,
                 DateOnly.FromDateTime(_settings.Date), 1, _settings.RadiusM, _settings.ResM, _settings.EyeH,
                 Math.Max(_settings.SubjectMinH, snap.Height), _settings.AzTol, _settings.AltBand,
-                dMin: Math.Max(80, _settings.RadiusMinM), cacheDir: cache, progress: progress));
+                dMin: Math.Max(80, _settings.RadiusMinM), visOnly: _visOnly, cacheDir: cache, progress: progress));
             DrawCoverage(g, snap);
             ViewBtn.IsEnabled = true;
             _vp = null; StopPlay(); ShowAnswerUi(false);

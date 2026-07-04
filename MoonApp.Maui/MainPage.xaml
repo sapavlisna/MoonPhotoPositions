@@ -11,7 +11,10 @@
                     VerticalOptions="Center"
                     BackgroundColor="{AppThemeBinding Light={StaticResource AccentBgL}, Dark={StaticResource AccentBgD}}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                <Image WidthRequest="19" HeightRequest="19" HorizontalOptions="Center" VerticalOptions="Center"
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnLogoTap" />
+                </Border.GestureRecognizers>
+                <Image x:Name="LogoImg" WidthRequest="19" HeightRequest="19" HorizontalOptions="Center" VerticalOptions="Center"
                        Source="{AppThemeBinding Light=ic_moon_l.png, Dark=ic_moon_d.png}" />
             </Border>
             <Border Grid.Column="1" Padding="12,7" StrokeThickness="0" VerticalOptions="Center"

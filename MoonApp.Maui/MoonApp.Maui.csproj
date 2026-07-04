@@ -62,6 +62,8 @@
 		<!-- Lucide-style ikony (obarvené přes TintColor; _l = světlý motiv, _d = tmavý) -->
 		<MauiImage Include="Resources\Icons\ic_moon_l.svg" TintColor="#2563EB" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_moon_d.svg" TintColor="#4F8EF7" BaseSize="24,24" />
+		<MauiImage Include="Resources\Icons\ic_eye_l.svg" TintColor="#2563EB" BaseSize="24,24" />
+		<MauiImage Include="Resources\Icons\ic_eye_d.svg" TintColor="#4F8EF7" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_calendar_l.svg" TintColor="#1E293B" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_calendar_d.svg" TintColor="#E6EDF5" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_layers_l.svg" TintColor="#1E293B" BaseSize="24,24" />
