@@ -309,9 +309,9 @@ public partial class ArPage : ContentPage
         var (ox, oy, oIn) = Ar.Project(_bearing, _elTarget, heading, pitch, HFov, vFov, W, H);
         if (Math.Abs(((_bearing - heading + 540) % 360) - 180) < HFov / 2)
         {
-            using var op = new SKPaint { Color = new SKColor(0, 200, 255), StrokeWidth = 4, IsAntialias = true };
+            using var op = new SKPaint { Color = new SKColor(56, 189, 248), StrokeWidth = 4, IsAntialias = true };
             c.DrawLine((float)ox, (float)oy, (float)ox, H, op);
-            using var ot = new SKPaint { Color = new SKColor(0, 200, 255), Style = SKPaintStyle.Stroke, StrokeWidth = 3, IsAntialias = true };
+            using var ot = new SKPaint { Color = new SKColor(56, 189, 248), Style = SKPaintStyle.Stroke, StrokeWidth = 3, IsAntialias = true };
             c.DrawCircle((float)ox, (float)oy, 13, ot);
         }
 
@@ -392,8 +392,8 @@ public partial class ArPage : ContentPage
             if (Math.Abs(daz) > HFov) { prev = null; continue; }
             var (x, y, _) = Ar.Project(s.Az, s.Alt, heading, pitch, HFov, vFov, W, H);
             double he = HorizonAt(s.Az);
-            SKColor col = s.Alt <= 0 ? new SKColor(150, 160, 180, 180)
-                : s.Alt > he ? new SKColor(255, 225, 80) : new SKColor(240, 120, 90);
+            SKColor col = s.Alt <= 0 ? new SKColor(124, 134, 152, 180)
+                : s.Alt > he ? new SKColor(250, 204, 21) : new SKColor(249, 115, 22);
             var pt = new SKPoint((float)x, (float)y);
             if (prev is { } p)
             {

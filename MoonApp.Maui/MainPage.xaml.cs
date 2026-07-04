@@ -25,6 +25,7 @@ public partial class MainPage : ContentPage
     bool _hasMe;
     ILayer[] _bases = null!;
     static readonly string[] BaseNames = ["Mapa", "Satelit", "Ortofoto"];
+    static readonly string[] BaseShort = ["OSM", "Sat", "Orto"];
     int _baseIdx;
 
     readonly PlannerSettings _settings = new();
@@ -36,9 +37,9 @@ public partial class MainPage : ContentPage
 
     // stav náhledu (horizont + dráha Měsíce)
     double _winA0, _winA1;          // azimutové okno [°]
-    List<MoonSample> _track = [];   // dráha Měsíce (přepočítatelná dle náhledového data)
-    int _prevDayOffset;             // posun data v náhledu [dny]
+    List<MoonSample> _track = [];   // dráha Měsíce
     int _timeIdx;                   // index vzorku v _track
+    double _sheetDrag;              // TranslationY panelu na začátku tažení
     bool _chartBig;                 // zvětšený náhled
     double _pinchA0, _pinchA1;      // okno na začátku pinch gesta
     double _panA0, _panA1;          // okno na začátku pan gesta
@@ -49,12 +50,39 @@ public partial class MainPage : ContentPage
     // perzistentní cache výškopisu (přežije čištění systémové cache → offline po stažení)
     static string DsmCache => Path.Combine(FileSystem.AppDataDirectory, "dsm");
 
+    // theme-aware barva (honoruje UserAppTheme override)
+    static Microsoft.Maui.Graphics.Color ThemeCol(string light, string dark) =>
+        Microsoft.Maui.Graphics.Color.FromArgb(
+            Application.Current?.RequestedTheme == AppTheme.Dark ? dark : light);
+
     public MainPage()
     {
         InitializeComponent();
         BuildMap();
         InitChart();
-        DateSel.Date = _settings.Date;
+        UpdateDateLabelTop();
+        UpdateStepper();
+    }
+
+    void UpdateDateLabelTop() =>
+        DateLabelTop.Text = _settings.Date.ToString("ddd d.M.",
+            System.Globalization.CultureInfo.GetCultureInfo("cs-CZ"));
+
+    async void OnOpenDatePicker(object? sender, TappedEventArgs e)
+    {
+        var page = new DatePickerPage(_settings.Date);
+        await Navigation.PushModalAsync(page);
+        var picked = await page.PickAsync();
+        if (picked is { } d) ApplyDate(d);
+    }
+
+    void ApplyDate(DateTime date)
+    {
+        _settings.Date = date;
+        UpdateDateLabelTop();
+        _vp = null; StopPlay(); ShowAnswerUi(false); UpdateStepper();
+        InfoLabel.IsVisible = true;
+        InfoLabel.Text = $"Datum {_settings.Date:d.M.yyyy}. Přepočítej ① Objekt / ② Stanoviště pro nový den.";
     }
 
     bool _updateChecked;
@@ -62,7 +90,7 @@ public partial class MainPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        if (DateSel.Date != _settings.Date) DateSel.Date = _settings.Date;
+        UpdateDateLabelTop();
         _ = StartLocationAsync();
         StartCompass();
         if (!_updateChecked) { _updateChecked = true; _ = UpdateService.CheckAsync(this, manual: false); }
@@ -136,23 +164,32 @@ public partial class MainPage : ContentPage
         var (x, y) = SphericalMercator.FromLonLat(_meLon, _meLat);
         Remove(ref _meLayer);
         var pf = new PointFeature(new MPoint(x, y));
+        // accuracy prstenec (spodní vrstva)
+        pf.Styles.Add(new SymbolStyle
+        {
+            SymbolType = SymbolType.Ellipse,
+            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(56, 189, 248, 45)),
+            Outline = new Pen(new Mapsui.Styles.Color(56, 189, 248, 90), 1),
+            SymbolScale = 1.6,
+        });
         // kužel/šipka směru telefonu (kompas)
         pf.Styles.Add(new SymbolStyle
         {
             SymbolType = SymbolType.Triangle,
-            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(66, 133, 244, 150)),
-            Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255, 180), 1),
+            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(56, 189, 248, 170)),
+            Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255, 200), 1),
             SymbolScale = 1.2,
             SymbolRotation = _heading,
         });
-        // modrá tečka polohy
+        // světle modrá tečka polohy (#38BDF8)
         pf.Styles.Add(new SymbolStyle
         {
             SymbolType = SymbolType.Ellipse,
-            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(66, 133, 244)),
+            Fill = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(56, 189, 248)),
             Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255), 3),
             SymbolScale = 0.5,
         });
+        pf.Styles.Add(ChipLabel("Moje poloha"));
         _meLayer = new MemoryLayer("me") { Features = [pf], Style = null };
         _map.Map.Layers.Add(_meLayer);   // vždy navrch
         _map.Refresh();
@@ -185,7 +222,7 @@ public partial class MainPage : ContentPage
                 name: "CUZK", persistentCache: new FileCache(Path.Combine(tiles, "cuzk"), "jpg"))) { Name = "Ortofoto" },
         ];
         map.Layers.Add(_bases[0]);
-        LayerBtn.Text = BaseNames[1];
+        LayerBtn.Text = BaseShort[0];
         var (mx, my) = SphericalMercator.FromLonLat(16.63903, 49.04183);
         var center = new MPoint(mx, my);
         _map.Map = map;
@@ -213,23 +250,17 @@ public partial class MainPage : ContentPage
         await PickViewpoint(lat, lon);
     }
 
-    void OnToggleLayer(object? sender, EventArgs e)
+    void OnToggleLayer(object? sender, TappedEventArgs e)
     {
         _map.Map.Layers.Remove(_bases[_baseIdx]);
         _baseIdx = (_baseIdx + 1) % _bases.Length;
         _map.Map.Layers.Insert(0, _bases[_baseIdx]);       // pod overlaye
-        LayerBtn.Text = BaseNames[(_baseIdx + 1) % _bases.Length];
+        LayerBtn.Text = BaseShort[_baseIdx];
         _map.Refresh();
     }
 
-    async void OnSettings(object? sender, EventArgs e)
+    async void OnSettings(object? sender, TappedEventArgs e)
         => await Navigation.PushAsync(new SettingsPage(_settings));
-
-    void OnDateSelected(object? sender, DateChangedEventArgs e)
-    {
-        _settings.Date = DateSel.Date ?? _settings.Date;
-        InfoLabel.Text = $"Datum {_settings.Date:d.M.yyyy}. Přepočítej ① Objekt / ② Stanoviště pro nový den.";
-    }
 
     void OnZoomIn(object? sender, EventArgs e)
     {
@@ -258,7 +289,9 @@ public partial class MainPage : ContentPage
                 dMin: Math.Max(80, _settings.RadiusMinM), cacheDir: cache, progress: progress));
             DrawCoverage(g, snap);
             ViewBtn.IsEnabled = true;
-            _vp = null; StopPlay(); ChartBorder.IsVisible = false;
+            _vp = null; StopPlay(); ShowAnswerUi(false);
+            UpdateStepper();
+            InfoLabel.IsVisible = true;
             InfoLabel.Text =
                 $"OBJEKT {snap.Lat:0.#####}, {snap.Lon:0.#####} · vrchol {snap.Top:0.0} m (výška {snap.Height:0.0} m)\n" +
                 $"pokrytí {g.Visible} buněk (max {g.Max}). Teď posuň na STANOVIŠTĚ a klikni.";
@@ -278,27 +311,109 @@ public partial class MainPage : ContentPage
                 DateOnly.FromDateTime(_settings.Date), _settings.EyeH, cacheDir: cache, progress: progress));
             _vp = r; _vpBearing = r.Bearing; _obsLat = lat; _obsLon = lon;
             DrawViewpoint(lat, lon);
-            ChartBorder.IsVisible = true;
-            ChartBody.IsVisible = true; CollapseBtn.Text = "▾";
             SetupChartWindow(r);
             string tip = r.OnTipUtc is { } t
                 ? TimeZoneInfo.ConvertTimeFromUtc(t, Time.Prague).ToString("HH:mm")
                 : "—";
-            InfoLabel.Text =
-                $"STANOVIŠTĚ {lat:0.#####}, {lon:0.#####} · {r.DistanceM:0} m, směr {r.Bearing:0}°\n" +
-                (r.Clear ? "✅ objekt je vidět" : "⛔ objekt zakrytý terénem") +
-                $" · potřebná výška Měsíce {r.ElTargetDeg:0.0}°\n" +
-                $"🎯 Měsíc na špici cca v {tip}";
+
+            // answer-first blok
+            ShowAnswerUi(true);
+            UpdateStepper();
+            InfoLabel.IsVisible = false;
+            ChartBody.IsVisible = false;          // graf sbalený, otevře se přes rozbalovač
+            GraphChevron.Text = "▾";
+            MetaLbl.Text = $"{lat:0.#####}, {lon:0.#####}  ·  {r.DistanceM:0} m  ·  {r.Bearing:0}°";
+
+            if (r.Clear)
+            {
+                AnswerPanel.BackgroundColor = ThemeCol("#ECFDF3", "#10261A");
+                AnswerIconBox.BackgroundColor = ThemeCol("#16A34A", "#34D399");
+                AnswerIconImg.Source = "ic_target.png";
+                AnswerEyebrow.Text = "MĚSÍC NA ŠPICI";
+                AnswerEyebrow.TextColor = ThemeCol("#16A34A", "#34D399");
+                AnswerTime.FontFamily = "monospace";
+                AnswerTime.FontSize = tip == "—" ? 22 : 32;
+                AnswerTime.Text = tip == "—" ? "nevyjde dnes" : tip;
+                StatusColumn.IsVisible = true;
+                StatusLbl.Text = "✓ Vidět";
+                StatusLbl.TextColor = ThemeCol("#16A34A", "#34D399");
+                StatusSub.Text = $"potř. výška {r.ElTargetDeg:0.0}°";
+                if (tip == "—")
+                {
+                    HintBox.IsVisible = true;
+                    HintLbl.Text = "⚠  Tento den Měsíc na špici objektu nevyjde — zkus posuvník data v grafu.";
+                }
+                else HintBox.IsVisible = false;
+            }
+            else
+            {
+                AnswerPanel.BackgroundColor = ThemeCol("#FEECEC", "#2A1416");
+                AnswerIconBox.BackgroundColor = ThemeCol("#DC2626", "#F87171");
+                AnswerIconImg.Source = "ic_ban.png";
+                AnswerEyebrow.Text = "OBJEKT ZAKRYTÝ TERÉNEM";
+                AnswerEyebrow.TextColor = ThemeCol("#DC2626", "#F87171");
+                AnswerTime.FontFamily = "OpenSansSemibold";
+                AnswerTime.FontSize = 22;
+                AnswerTime.Text = "Odsud Měsíc nevyjde";
+                StatusColumn.IsVisible = false;
+                HintBox.IsVisible = true;
+                HintLbl.Text = $"⚠  Posuň stanoviště dál nebo zkus jiné datum — potřebná výška {r.ElTargetDeg:0.0}° je nad terénem.";
+            }
         }
         catch (Exception ex) { InfoLabel.Text = "Chyba: " + ex.Message; }
         finally { SetBusy(false); }
+    }
+
+    // Zobrazí/skryje answer-first blok (odpověď + meta + rozbalovač grafu).
+    void ShowAnswerUi(bool show)
+    {
+        AnswerPanel.IsVisible = show;
+        MetaLbl.IsVisible = show;
+        GraphToggle.IsVisible = show;
+        if (!show)
+        {
+            ChartBody.IsVisible = false;
+            HintBox.IsVisible = false;
+        }
+    }
+
+    // Vizuální stav krokovače ① / ②.
+    void UpdateStepper()
+    {
+        var accent = ThemeCol("#2563EB", "#4F8EF7");
+        PickBtn.Text = _hasObj ? "✓ ① Objekt" : "① Objekt";
+
+        if (_vp != null)
+        {
+            ViewBtn.Text = "✓ ② Stanoviště";
+            ViewBtn.BackgroundColor = accent;
+            ViewBtn.TextColor = Colors.White;
+            ViewBtn.BorderWidth = 0;
+        }
+        else if (_hasObj)
+        {
+            ViewBtn.Text = "② Stanoviště";
+            ViewBtn.BackgroundColor = Colors.Transparent;
+            ViewBtn.TextColor = accent;
+            ViewBtn.BorderColor = accent;
+            ViewBtn.BorderWidth = 1.5;
+        }
+        else
+        {
+            ViewBtn.Text = "② Stanoviště";
+            ViewBtn.BackgroundColor = Colors.Transparent;
+            ViewBtn.TextColor = ThemeCol("#64748B", "#94A3B0");
+            ViewBtn.BorderColor = ThemeCol("#E2E7EE", "#263345");
+            ViewBtn.BorderWidth = 1.5;
+        }
     }
 
     void SetBusy(bool busy, string? msg = null)
     {
         Busy.IsRunning = busy;
         Busy.IsVisible = busy;
-        if (!busy) { Bar.IsVisible = false; Bar.Progress = 0; }
+        if (busy) { ShowAnswerUi(false); InfoLabel.IsVisible = true; }
+        else { Bar.IsVisible = false; Bar.Progress = 0; }
         PickBtn.IsEnabled = !busy;
         ViewBtn.IsEnabled = !busy && _hasObj;
         if (msg != null) InfoLabel.Text = msg;
@@ -335,7 +450,7 @@ public partial class MainPage : ContentPage
             Style = new RasterStyle(),
         };
         map.Layers.Add(_covLayer);
-        _objLayer = Dot(snap.Lon, snap.Lat, new Mapsui.Styles.Color(230, 40, 40), "object");
+        _objLayer = Dot(snap.Lon, snap.Lat, new Mapsui.Styles.Color(239, 68, 68), "object", "Objekt");
         map.Layers.Add(_objLayer);
         BringMeToFront();
         _map.Refresh();
@@ -352,30 +467,42 @@ public partial class MainPage : ContentPage
             Features = [new GeometryFeature {
                 Geometry = new NetTopologySuite.Geometries.LineString(
                     [new(ox, oy), new(jx, jy)]) }],
-            Style = new VectorStyle { Line = new Pen(new Mapsui.Styles.Color(60, 130, 255), 3) },
+            Style = new VectorStyle { Line = new Pen(new Mapsui.Styles.Color(37, 99, 235), 3) },
         };
         map.Layers.Add(_lineLayer);
-        _obsLayer = Dot(lon, lat, new Mapsui.Styles.Color(60, 130, 255), "obs");
+        _obsLayer = Dot(lon, lat, new Mapsui.Styles.Color(30, 64, 175), "obs", "Stanoviště");
         map.Layers.Add(_obsLayer);
         BringMeToFront();
         _map.Refresh();
     }
 
-    static MemoryLayer Dot(double lon, double lat, Mapsui.Styles.Color c, string name)
+    static MemoryLayer Dot(double lon, double lat, Mapsui.Styles.Color c, string name, string? label = null)
     {
         var (x, y) = SphericalMercator.FromLonLat(lon, lat);
-        return new MemoryLayer(name)
+        var pf = new PointFeature(new MPoint(x, y));
+        pf.Styles.Add(new SymbolStyle
         {
-            Features = [new PointFeature(new MPoint(x, y))],
-            Style = new SymbolStyle
-            {
-                SymbolType = SymbolType.Ellipse,
-                Fill = new Mapsui.Styles.Brush(c),
-                Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255), 2),
-                SymbolScale = 0.6,
-            },
-        };
+            SymbolType = SymbolType.Ellipse,
+            Fill = new Mapsui.Styles.Brush(c),
+            Outline = new Pen(new Mapsui.Styles.Color(255, 255, 255), 2),
+            SymbolScale = 0.6,
+        });
+        if (label != null) pf.Styles.Add(ChipLabel(label));
+        return new MemoryLayer(name) { Features = [pf], Style = null };
     }
+
+    // Tmavý „chip" popisek nad markerem.
+    static LabelStyle ChipLabel(string text) => new()
+    {
+        Text = text,
+        ForeColor = new Mapsui.Styles.Color(255, 255, 255),
+        BackColor = new Mapsui.Styles.Brush(new Mapsui.Styles.Color(17, 24, 39, 235)),
+        Halo = new Pen(new Mapsui.Styles.Color(0, 0, 0, 60), 1),
+        Font = new Mapsui.Styles.Font { Size = 12, Bold = true },
+        HorizontalAlignment = LabelStyle.HorizontalAlignmentEnum.Center,
+        VerticalAlignment = LabelStyle.VerticalAlignmentEnum.Bottom,
+        Offset = new Offset(0, -14),
+    };
 
     void Remove(ref MemoryLayer? layer)
     {
@@ -415,19 +542,16 @@ public partial class MainPage : ContentPage
     void SetupChartWindow(ViewpointResult vp)
     {
         _track = [.. vp.Track];
-        _prevDayOffset = 0;
-        DateSlider.Value = 0;
         FitWindow();
         _timeIdx = DefaultIdx();
         TimeSlider.Maximum = Math.Max(0, _track.Count - 1);
         TimeSlider.Value = _timeIdx;   // → OnTimeChanged
-        UpdateDateLabel();
         UpdateMoon();
     }
 
     int DefaultIdx()
     {
-        if (_vp is { } vp && _prevDayOffset == 0 && vp.OnTipUtc is { } tip)
+        if (_vp is { } vp && vp.OnTipUtc is { } tip)
         {
             int t = IndexOfTime(_track, tip);
             if (t >= 0) return t;
@@ -472,7 +596,8 @@ public partial class MainPage : ContentPage
         string state = s.Alt <= 0 ? "pod obzorem" : s.Alt > he ? "nad obzorem (vidět)" : "za překážkou";
         var local = TimeZoneInfo.ConvertTimeFromUtc(s.TimeUtc, Time.Prague);
         TimeInfo.Text = $"🕒 {local:HH:mm} — az {s.Az:0.0}°, alt {s.Alt:0.0}° · {state}";
-        Chart.InvalidateSurface();
+        // Vynuceně mimo dotykový cyklus posuvníku — Android jinak překreslení plátna odkládá.
+        Dispatcher.Dispatch(() => Chart.InvalidateSurface());
     }
 
     void OnTimeChanged(object? sender, ValueChangedEventArgs e)
@@ -480,30 +605,6 @@ public partial class MainPage : ContentPage
         if (_track.Count == 0) return;
         _timeIdx = Math.Clamp((int)Math.Round(e.NewValue), 0, _track.Count - 1);
         UpdateMoon();
-    }
-
-    // Datum posuvníkem — přepočítá JEN dráhu Měsíce (astro, bez sítě). Terén/pokrytí se nemění.
-    void OnPreviewDateChanged(object? sender, ValueChangedEventArgs e)
-    {
-        if (_vp is null) return;
-        int off = (int)Math.Round(e.NewValue);
-        if (off == _prevDayOffset) return;
-        _prevDayOffset = off;
-        var date = _settings.Date.AddDays(off);
-        var localStart = new DateTime(date.Year, date.Month, date.Day, 16, 0, 0, DateTimeKind.Unspecified);
-        var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, Time.Prague);
-        _track = Astro.Track(_obsLat, _obsLon, utcStart, utcStart.AddHours(16), 2);
-        TimeSlider.Maximum = Math.Max(0, _track.Count - 1);
-        _timeIdx = Math.Clamp(_timeIdx, 0, Math.Max(0, _track.Count - 1));
-        UpdateDateLabel();
-        UpdateMoon();
-    }
-
-    void UpdateDateLabel()
-    {
-        var date = _settings.Date.AddDays(_prevDayOffset);
-        string rel = _prevDayOffset == 0 ? "dnes vybráno" : _prevDayOffset > 0 ? $"+{_prevDayOffset} dní" : $"{_prevDayOffset} dní";
-        DateLbl.Text = $"📅 {date:d.M.} ({rel})";
     }
 
     void OnPlay(object? sender, EventArgs e)
@@ -539,11 +640,42 @@ public partial class MainPage : ContentPage
         BigBtn.Text = _chartBig ? "🗕" : "⛶";
     }
 
-    void OnChartCollapse(object? sender, EventArgs e)
+    void OnChartCollapse(object? sender, TappedEventArgs e)
     {
         ChartBody.IsVisible = !ChartBody.IsVisible;
-        CollapseBtn.Text = ChartBody.IsVisible ? "▾" : "▴";
+        GraphChevron.Text = ChartBody.IsVisible ? "▴" : "▾";
         if (!ChartBody.IsVisible) StopPlay();
+        else Chart.InvalidateSurface();
+    }
+
+    // Tažení spodního panelu úchytem: dolů = schovat (odkryje mapu), nahoru = zobrazit.
+    // Po schování zůstane viditelný pruh s úchytem (peek), aby šel snadno vytáhnout zpět.
+    const double SheetPeek = 64;
+    double SheetHideMax => Math.Max(0, Sheet.Height - SheetPeek);
+
+    void OnSheetPan(object? sender, PanUpdatedEventArgs e)
+    {
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                _sheetDrag = Sheet.TranslationY;
+                break;
+            case GestureStatus.Running:
+                Sheet.TranslationY = Math.Clamp(_sheetDrag + e.TotalY, 0, SheetHideMax);
+                break;
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+                double max = SheetHideMax;
+                double target = Sheet.TranslationY > max * 0.4 ? max : 0;
+                Sheet.TranslateTo(0, target, 160, Easing.CubicOut);
+                break;
+        }
+    }
+
+    void OnHandleTap(object? sender, TappedEventArgs e)
+    {
+        double target = Sheet.TranslationY > 1 ? 0 : SheetHideMax;
+        Sheet.TranslateTo(0, target, 160, Easing.CubicOut);
     }
 
     async void OnOpenAr(object? sender, EventArgs e)
@@ -608,7 +740,7 @@ public partial class MainPage : ContentPage
     void OnPaintHorizon(object? sender, SKPaintSurfaceEventArgs e)
     {
         var canvas = e.Surface.Canvas;
-        canvas.Clear(new SKColor(12, 12, 18));
+        canvas.Clear(new SKColor(10, 14, 23));      // #0A0E17
         if (_vp is not { } vp) return;
 
         int W = e.Info.Width, H = e.Info.Height;
@@ -622,8 +754,8 @@ public partial class MainPage : ContentPage
         float X(double az) => (float)((az - a0) / (a1 - a0) * W);
         float Y(double el) => (float)(H - (el - elMin) / (elMax - elMin) * H);
 
-        // silueta horizontu
-        using var terr = new SKPaint { Color = new SKColor(34, 68, 51), IsAntialias = true };
+        // silueta horizontu (#16351F)
+        using var terr = new SKPaint { Color = new SKColor(22, 53, 31), IsAntialias = true };
         var path = new SKPath();
         path.MoveTo(0, H);
         for (double az = a0; az <= a1; az += 0.5)
@@ -632,20 +764,20 @@ public partial class MainPage : ContentPage
         canvas.DrawPath(path, terr);
 
         // čára obzoru (el = 0)
-        using var zero = new SKPaint { Color = new SKColor(80, 90, 110), StrokeWidth = 1, IsAntialias = true };
+        using var zero = new SKPaint { Color = new SKColor(60, 72, 90), StrokeWidth = 1, IsAntialias = true };
         canvas.DrawLine(0, Y(0), W, Y(0), zero);
 
-        // svislice na objekt + potřebná výška
-        using var objp = new SKPaint { Color = new SKColor(0, 200, 255), StrokeWidth = 2, IsAntialias = true };
+        // svislice na objekt + potřebná výška (#38BDF8)
+        using var objp = new SKPaint { Color = new SKColor(56, 189, 248), StrokeWidth = 2, IsAntialias = true };
         if (_vpBearing >= a0 && _vpBearing <= a1) canvas.DrawLine(X(_vpBearing), 0, X(_vpBearing), H, objp);
 
-        // dráha Měsíce (celá) jako drobné tečky
+        // dráha Měsíce: žlutá #FACC15 (vidět) · oranžová #F97316 (za překážkou) · šedá (pod obzorem)
         foreach (var s in _track)
         {
             if (s.Az < a0 || s.Az > a1) continue;
             double he = HorizonAt(vp.Horizon, s.Az);
-            SKColor c = s.Alt <= 0 ? new SKColor(150, 160, 180)
-                : s.Alt > he ? new SKColor(255, 225, 80) : new SKColor(240, 120, 90);
+            SKColor c = s.Alt <= 0 ? new SKColor(124, 134, 152)
+                : s.Alt > he ? new SKColor(250, 204, 21) : new SKColor(249, 115, 22);
             using var p = new SKPaint { Color = c, IsAntialias = true };
             canvas.DrawCircle(X(s.Az), Y(s.Alt), 2.5f, p);
         }
@@ -654,24 +786,29 @@ public partial class MainPage : ContentPage
         using var tipp = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2 };
         if (_vpBearing >= a0 && _vpBearing <= a1) canvas.DrawCircle(X(_vpBearing), Y(vp.ElTargetDeg), 7, tipp);
 
-        // aktuální poloha Měsíce (dle času)
+        // aktuální poloha Měsíce (dle času) — výrazná, aby byl posun v čase jasně vidět
         if (_track.Count > 0 && _timeIdx < _track.Count)
         {
             var m = _track[_timeIdx];
             if (m.Az >= a0 && m.Az <= a1)
             {
                 float mx = X(m.Az), my = Y(m.Alt);
-                using var glow = new SKPaint { Color = new SKColor(255, 245, 200, 70), IsAntialias = true };
-                canvas.DrawCircle(mx, my, 12, glow);
-                using var moon = new SKPaint { Color = new SKColor(255, 240, 180), IsAntialias = true };
-                canvas.DrawCircle(mx, my, 6, moon);
-                using var ring = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, IsAntialias = true };
-                canvas.DrawCircle(mx, my, 6, ring);
+                // vodicí svislice k markeru
+                using var guide = new SKPaint { Color = new SKColor(255, 245, 200, 90), StrokeWidth = 1.5f, IsAntialias = true };
+                canvas.DrawLine(mx, 0, mx, my, guide);
+                using var glow = new SKPaint { Color = new SKColor(255, 240, 180, 90), IsAntialias = true };
+                canvas.DrawCircle(mx, my, 18, glow);
+                using var glow2 = new SKPaint { Color = new SKColor(255, 240, 180, 130), IsAntialias = true };
+                canvas.DrawCircle(mx, my, 11, glow2);
+                using var moon = new SKPaint { Color = new SKColor(255, 244, 205), IsAntialias = true };
+                canvas.DrawCircle(mx, my, 8, moon);
+                using var ring = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 2.5f, IsAntialias = true };
+                canvas.DrawCircle(mx, my, 8.5f, ring);
             }
         }
 
         // popisky azimutu
-        using var txt = new SKPaint { Color = new SKColor(150, 160, 180), IsAntialias = true };
+        using var txt = new SKPaint { Color = new SKColor(124, 134, 152), IsAntialias = true };
         using var font = new SKFont { Size = 20 };
         canvas.DrawText($"{a0:0}°", 4, H - 6, SKTextAlign.Left, font, txt);
         canvas.DrawText($"{(a0 + a1) / 2:0}°", W / 2f, H - 6, SKTextAlign.Center, font, txt);

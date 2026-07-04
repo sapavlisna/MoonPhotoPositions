@@ -32,15 +32,15 @@
             <Slider x:Name="TimeSlider" Minimum="0" Maximum="0" ValueChanged="OnTimeChanged" />
             <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="6">
                 <Button x:Name="MoveBtn" Grid.Column="0" Text="🧭 Kompas" FontSize="12" Padding="0"
-                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnToggleMove" />
+                        HeightRequest="40" BackgroundColor="#1A2235" Clicked="OnToggleMove" />
                 <Button x:Name="CamBtn" Grid.Column="1" Text="🎨 Grafika" FontSize="12" Padding="0"
-                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnToggleCamera" />
+                        HeightRequest="40" BackgroundColor="#1A2235" Clicked="OnToggleCamera" />
                 <Button x:Name="GpsBtn" Grid.Column="2" Text="📍 GPS" FontSize="12" Padding="0"
-                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnGps" />
+                        HeightRequest="40" BackgroundColor="#1A2235" Clicked="OnGps" />
                 <Button x:Name="CalBtn" Grid.Column="3" Text="🎯 Kalib." FontSize="12" Padding="0"
-                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnCalibrate" />
+                        HeightRequest="40" BackgroundColor="#1A2235" Clicked="OnCalibrate" />
                 <Button x:Name="CloseBtn" Grid.Column="4" Text="✕ Zpět" FontSize="12" Padding="0"
-                        HeightRequest="40" BackgroundColor="#2a2f3a" Clicked="OnClose" />
+                        HeightRequest="40" BackgroundColor="#1A2235" Clicked="OnClose" />
             </Grid>
         </VerticalStackLayout>
     </Grid>

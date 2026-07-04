@@ -20,18 +20,32 @@ public partial class SettingsPage : ContentPage
         AltBandE.Text = Fmt(s.AltBand);
         VersionLbl.Text = $"MoonApp {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
 
-        ThemeP.SelectedIndex = Preferences.Default.Get("theme", "system") switch
-        {
-            "light" => 1, "dark" => 2, _ => 0,
-        };
+        HighlightTheme(Preferences.Default.Get("theme", "system"));
     }
 
-    void OnThemeChanged(object? sender, EventArgs e)
+    void OnThemePick(object? sender, EventArgs e)
     {
-        string t = ThemeP.SelectedIndex switch { 1 => "light", 2 => "dark", _ => "system" };
+        string t = sender == SegLight ? "light" : sender == SegDark ? "dark" : "system";
         Preferences.Default.Set("theme", t);
         if (Application.Current is { } app) app.UserAppTheme = App.ThemeFromPref(t);
+        HighlightTheme(t);
     }
+
+    void HighlightTheme(string t)
+    {
+        var accent = SettingsColor("#2563EB", "#4F8EF7");
+        var ink = SettingsColor("#1E293B", "#E6EDF5");
+        foreach (var (btn, key) in new[] { (SegSys, "system"), (SegLight, "light"), (SegDark, "dark") })
+        {
+            bool on = key == t;
+            btn.BackgroundColor = on ? accent : Colors.Transparent;
+            btn.TextColor = on ? Colors.White : ink;
+            btn.FontAttributes = on ? FontAttributes.Bold : FontAttributes.None;
+        }
+    }
+
+    static Color SettingsColor(string light, string dark) =>
+        Color.FromArgb(Application.Current?.RequestedTheme == AppTheme.Dark ? dark : light);
 
     async void OnCheckUpdate(object? sender, EventArgs e)
     {

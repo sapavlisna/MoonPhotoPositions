@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MoonApp.Maui.DatePickerPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceL}, Dark={StaticResource SurfaceD}}"
+             Title="Vyber datum">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- hlavička -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Padding="12,10" ColumnSpacing="6"
+              BackgroundColor="{AppThemeBinding Light={StaticResource TopbarL}, Dark={StaticResource TopbarD}}">
+            <Button Grid.Column="0" Text="←" FontSize="20" WidthRequest="44" HeightRequest="44" Padding="0"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                    Clicked="OnBack" />
+            <Label Grid.Column="1" Text="Vyber datum" FontSize="19" FontAttributes="Bold" VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="16">
+
+                <!-- rychlé volby -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0" x:Name="ChipToday" Text="Dnes" Style="{StaticResource Ghost}"
+                            FontAttributes="Bold" HeightRequest="56" Clicked="OnToday" />
+                    <Button Grid.Column="1" x:Name="ChipTomorrow" Text="Zítra" Style="{StaticResource Ghost}"
+                            FontAttributes="Bold" HeightRequest="56" Clicked="OnTomorrow" />
+                    <Button Grid.Column="2" x:Name="ChipFull" Text="🌕 Úplněk" Style="{StaticResource Ghost}"
+                            FontSize="13" HeightRequest="56" Clicked="OnFullMoon" />
+                </Grid>
+
+                <!-- navigace měsíce -->
+                <Grid ColumnDefinitions="Auto,*,Auto" VerticalOptions="Center">
+                    <Button Grid.Column="0" Text="‹" FontSize="22" WidthRequest="44" HeightRequest="44" Padding="0"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                            Clicked="OnPrevMonth" />
+                    <Label Grid.Column="1" x:Name="MonthLbl" FontSize="16" FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}" />
+                    <Button Grid.Column="2" Text="›" FontSize="22" WidthRequest="44" HeightRequest="44" Padding="0"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                            Clicked="OnNextMonth" />
+                </Grid>
+
+                <!-- záhlaví dnů v týdnu -->
+                <Grid x:Name="WeekHeader" ColumnDefinitions="*,*,*,*,*,*,*" />
+
+                <!-- mřížka dnů (plní se v code-behind) -->
+                <Grid x:Name="DaysGrid" ColumnDefinitions="*,*,*,*,*,*,*" RowSpacing="4" ColumnSpacing="4" />
+
+                <!-- legenda -->
+                <HorizontalStackLayout Spacing="18" HorizontalOptions="Center" Margin="0,4,0,0">
+                    <Label Text="🌑 nov" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                    <Label Text="🌕 úplněk" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- CTA -->
+        <Button Grid.Row="2" x:Name="ApplyBtn" Text="Použít" Margin="16,8,16,16" Clicked="OnApply" />
+    </Grid>
+</ContentPage>

@@ -26,4 +26,29 @@ public static class Astro
             list.Add(MoonAt(lat, lon, t));
         return list;
     }
+
+    /// <summary>
+    /// Fáze Měsíce pro daný den: Fraction = osvětlená část (0..1),
+    /// Phase = 0/1 nov, 0.5 úplněk (0–0.5 dorůstá, 0.5–1 couvá).
+    /// </summary>
+    public static (double Fraction, double Phase) MoonPhase(DateOnly date)
+    {
+        var noon = new DateTime(date.Year, date.Month, date.Day, 12, 0, 0, DateTimeKind.Utc);
+        var c = new Coordinate(0, 0, noon);
+        var mi = c.CelestialInfo.MoonIllum;
+        return (mi.Fraction, mi.Phase);
+    }
+
+    /// <summary>Nejbližší úplněk ode dne <paramref name="from"/> (včetně), hledá do 40 dní.</summary>
+    public static DateOnly NextFullMoon(DateOnly from)
+    {
+        DateOnly best = from; double bestDist = double.MaxValue;
+        for (int i = 0; i <= 40; i++)
+        {
+            var d = from.AddDays(i);
+            double dist = Math.Abs(MoonPhase(d).Phase - 0.5);
+            if (dist < bestDist) { bestDist = dist; best = d; }
+        }
+        return best;
+    }
 }

@@ -3,113 +3,209 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:skia="clr-namespace:SkiaSharp.Views.Maui.Controls;assembly=SkiaSharp.Views.Maui.Controls"
              x:Class="MoonApp.Maui.MainPage"
-             Title="🌙 MoonApp">
+             Title="MoonApp">
 
     <Shell.TitleView>
-        <Grid ColumnDefinitions="Auto,*" Padding="0,0,4,0" VerticalOptions="Fill">
-            <Label Grid.Column="0" Text="🌙" FontSize="18" VerticalOptions="Center" Margin="0,0,6,0" />
-            <HorizontalStackLayout Grid.Column="1" Spacing="4" HorizontalOptions="Start" VerticalOptions="Center">
-                <Label Text="📅" FontSize="15" VerticalOptions="Center" />
-                <DatePicker x:Name="DateSel" Format="ddd d.M.yyyy" FontSize="14"
-                            DateSelected="OnDateSelected" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8" Padding="0,0,10,0" VerticalOptions="Center">
+            <Border Grid.Column="0" WidthRequest="34" HeightRequest="34" Padding="0" StrokeThickness="0"
+                    VerticalOptions="Center"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentBgL}, Dark={StaticResource AccentBgD}}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                <Image WidthRequest="19" HeightRequest="19" HorizontalOptions="Center" VerticalOptions="Center"
+                       Source="{AppThemeBinding Light=ic_moon_l.png, Dark=ic_moon_d.png}" />
+            </Border>
+            <Border Grid.Column="1" Padding="12,7" StrokeThickness="0" VerticalOptions="Center"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SubtleL}, Dark={StaticResource SubtleD}}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnOpenDatePicker" />
+                </Border.GestureRecognizers>
+                <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                    <Image WidthRequest="15" HeightRequest="15" VerticalOptions="Center"
+                           Source="{AppThemeBinding Light=ic_calendar_l.png, Dark=ic_calendar_d.png}" />
+                    <Label x:Name="DateLabelTop" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}" />
+                    <Label Text="▾" FontSize="12" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- přepínač podkladové vrstvy (ikona + aktuální vrstva) -->
+            <VerticalStackLayout Grid.Column="3" Spacing="1" VerticalOptions="Center" WidthRequest="44">
+                <VerticalStackLayout.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnToggleLayer" />
+                </VerticalStackLayout.GestureRecognizers>
+                <Image WidthRequest="20" HeightRequest="20" HorizontalOptions="Center"
+                       Source="{AppThemeBinding Light=ic_layers_l.png, Dark=ic_layers_d.png}" />
+                <Label x:Name="LayerBtn" Text="Sat" FontSize="9" FontAttributes="Bold" HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+            </VerticalStackLayout>
+
+            <Image Grid.Column="4" WidthRequest="24" HeightRequest="24" Margin="6,0" Aspect="AspectFit"
+                   VerticalOptions="Center" HorizontalOptions="Center"
+                   Source="{AppThemeBinding Light=ic_settings_l.png, Dark=ic_settings_d.png}">
+                <Image.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSettings" />
+                </Image.GestureRecognizers>
+            </Image>
         </Grid>
     </Shell.TitleView>
-
-    <ContentPage.ToolbarItems>
-        <ToolbarItem x:Name="LayerBtn" Text="Satelit" Clicked="OnToggleLayer" />
-        <ToolbarItem Text="⚙" Clicked="OnSettings" />
-    </ContentPage.ToolbarItems>
 
     <Grid x:Name="Root">
         <!-- MapControl se vkládá do Root v code-behind jako spodní vrstva -->
 
-        <Label Text="✛" FontSize="36" TextColor="#e23" InputTransparent="True"
+        <Label Text="✛" FontSize="34" TextColor="#EF4444" InputTransparent="True"
                HorizontalOptions="Center" VerticalOptions="Center" />
 
-        <VerticalStackLayout HorizontalOptions="Start" VerticalOptions="Start" Margin="8" Spacing="6">
-            <Button Text="+" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="20" Clicked="OnZoomIn" />
-            <Button Text="–" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="20" Clicked="OnZoomOut" />
-            <Button x:Name="GpsBtn" Text="📍" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="18"
-                    Clicked="OnCenterOnMe" ToolTipProperties.Text="Vycentrovat na moji polohu" />
-        </VerticalStackLayout>
+        <!-- ovládání mapy: jeden panel s hairline oddělovači -->
+        <Border HorizontalOptions="Start" VerticalOptions="Start" Margin="10" Padding="0" StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light=#F2FFFFFF, Dark=#F2161E2E}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+            <Border.Shadow><Shadow Brush="#000000" Opacity="0.18" Radius="10" Offset="0,3" /></Border.Shadow>
+            <VerticalStackLayout Spacing="0">
+                <Button Text="＋" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="18"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                        Clicked="OnZoomIn" />
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource HairL}, Dark={StaticResource HairD}}" />
+                <Button Text="－" WidthRequest="46" HeightRequest="46" Padding="0" FontSize="18"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                        Clicked="OnZoomOut" />
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource HairL}, Dark={StaticResource HairD}}" />
+                <Button x:Name="GpsBtn" WidthRequest="46" HeightRequest="46" Padding="0"
+                        BackgroundColor="Transparent"
+                        ImageSource="{AppThemeBinding Light=ic_locate_l.png, Dark=ic_locate_d.png}"
+                        Clicked="OnCenterOnMe" ToolTipProperties.Text="Vycentrovat na moji polohu" />
+            </VerticalStackLayout>
+        </Border>
 
-        <!-- spodní část: náhledová sekce + akční panel -->
-        <VerticalStackLayout VerticalOptions="End" Margin="8,6" Spacing="6">
+        <!-- spodní answer-first panel (tažný přes úchyt) -->
+        <Border x:Name="Sheet" VerticalOptions="End" Padding="14,4,14,14" StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light=#FAFFFFFF, Dark=#FA161E2E}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="22,22,0,0" /></Border.StrokeShape>
+            <Border.Shadow><Shadow Brush="#000000" Opacity="0.22" Radius="18" Offset="0,-4" /></Border.Shadow>
 
-            <!-- interaktivní náhled: horizont + dráha Měsíce -->
-            <Border x:Name="ChartBorder" IsVisible="False" Padding="8"
-                    BackgroundColor="#F2101018" StrokeThickness="0">
-                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                <VerticalStackLayout Spacing="6">
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
-                        <Label Grid.Column="0" Text="Stanoviště + dráha Měsíce" TextColor="#ddd"
-                               FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
-                        <Button Grid.Column="1" x:Name="ArBtn" Text="AR" FontSize="13"
-                                WidthRequest="44" HeightRequest="34" Padding="0"
-                                BackgroundColor="#2a2f3a" Clicked="OnOpenAr" />
-                        <Button Grid.Column="2" x:Name="BigBtn" Text="⛶" FontSize="16"
-                                WidthRequest="40" HeightRequest="34" Padding="0"
-                                BackgroundColor="#2a2f3a" Clicked="OnChartBig" />
-                        <Button Grid.Column="3" x:Name="CollapseBtn" Text="▾" FontSize="16"
-                                WidthRequest="40" HeightRequest="34" Padding="0"
-                                BackgroundColor="#2a2f3a" Clicked="OnChartCollapse" />
+            <VerticalStackLayout x:Name="Panel" Spacing="10">
+
+                <!-- úchyt (tažný — pohybem dolů schová sekci, nahoru zobrazí) -->
+                <Grid x:Name="DragHandle" HeightRequest="40" Margin="-14,-4,-14,-2"
+                      BackgroundColor="{AppThemeBinding Light=#FFFFFFFF, Dark=#FF161E2E}">
+                    <Grid.GestureRecognizers>
+                        <PanGestureRecognizer PanUpdated="OnSheetPan" />
+                        <TapGestureRecognizer Tapped="OnHandleTap" />
+                    </Grid.GestureRecognizers>
+                    <BoxView WidthRequest="44" HeightRequest="5" CornerRadius="2.5"
+                             HorizontalOptions="Center" VerticalOptions="Center"
+                             BackgroundColor="{AppThemeBinding Light={StaticResource HairL}, Dark={StaticResource HairD}}" />
+                </Grid>
+
+                <!-- krokovač ① / ② -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button x:Name="PickBtn" Grid.Column="0" Text="① Objekt" Clicked="OnPick"
+                            CornerRadius="11" HeightRequest="46" FontSize="14" Padding="0" />
+                    <Button x:Name="ViewBtn" Grid.Column="1" Text="② Stanoviště" Clicked="OnViewpoint"
+                            CornerRadius="11" HeightRequest="46" FontSize="14" Padding="0" />
+                </Grid>
+
+                <!-- pokyny / průběh -->
+                <Label x:Name="InfoLabel" FontSize="12.5" LineBreakMode="TailTruncation" MaxLines="3"
+                       TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                       Text="Zaměř OBJEKT na křížek → ① Objekt. Pak STANOVIŠTĚ → ② Stanoviště." />
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                    <ActivityIndicator x:Name="Busy" Grid.Column="0" IsRunning="False" IsVisible="False"
+                                       HeightRequest="18" WidthRequest="18" HorizontalOptions="Start" />
+                    <ProgressBar x:Name="Bar" Grid.Column="1" IsVisible="False" Progress="0"
+                                 ProgressColor="{AppThemeBinding Light={StaticResource AccentL}, Dark={StaticResource AccentD}}"
+                                 VerticalOptions="Center" />
+                </Grid>
+
+                <!-- BLOK ODPOVĚDI (answer-first) -->
+                <Border x:Name="AnswerPanel" IsVisible="False" Padding="12" StrokeThickness="0">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                        <Border x:Name="AnswerIconBox" Grid.Column="0" WidthRequest="46" HeightRequest="46"
+                                Padding="0" StrokeThickness="0" VerticalOptions="Center">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="23" /></Border.StrokeShape>
+                            <Image x:Name="AnswerIconImg" WidthRequest="24" HeightRequest="24"
+                                   HorizontalOptions="Center" VerticalOptions="Center"
+                                   Source="ic_target.png" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                            <Label x:Name="AnswerEyebrow" Style="{StaticResource Eyebrow}" Text="MĚSÍC NA ŠPICI" />
+                            <Label x:Name="AnswerTime" FontFamily="monospace" FontSize="32" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}"
+                                   Text="—" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout x:Name="StatusColumn" Grid.Column="2" Spacing="1"
+                                             VerticalOptions="Center" HorizontalOptions="End">
+                            <Label x:Name="StatusLbl" Text="✓ Vidět" FontSize="13" FontAttributes="Bold"
+                                   HorizontalTextAlignment="End"
+                                   TextColor="{AppThemeBinding Light={StaticResource SuccessL}, Dark={StaticResource SuccessD}}" />
+                            <Label x:Name="StatusSub" Text="" FontSize="11" HorizontalTextAlignment="End"
+                                   TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <!-- nápověda při zakrytém objektu -->
+                <Border x:Name="HintBox" IsVisible="False" Padding="10,8" StrokeThickness="0"
+                        BackgroundColor="{AppThemeBinding Light=#FFF7ED, Dark=#2A2110}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                    <Label x:Name="HintLbl" FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource WarnL}, Dark={StaticResource WarnD}}" />
+                </Border>
+
+                <!-- meta řádek (souřadnice, vzdálenost, azimut) -->
+                <Label x:Name="MetaLbl" Style="{StaticResource Meta}" IsVisible="False" />
+
+                <!-- rozbalovač grafu -->
+                <Grid x:Name="GraphToggle" IsVisible="False" ColumnDefinitions="*,Auto" Padding="2,4">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnChartCollapse" />
+                    </Grid.GestureRecognizers>
+                    <Label Grid.Column="0" Text="Graf dráhy Měsíce" FontSize="13" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource AccentL}, Dark={StaticResource AccentD}}" />
+                    <Label x:Name="GraphChevron" Grid.Column="1" Text="▾" FontSize="14"
+                           TextColor="{AppThemeBinding Light={StaticResource AccentL}, Dark={StaticResource AccentD}}" />
+                </Grid>
+
+                <!-- GRAF (rozbalovací) -->
+                <VerticalStackLayout x:Name="ChartBody" IsVisible="False" Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" Text="azimut × výška nad obzorem"
+                               FontSize="11" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                        <Button Grid.Column="1" x:Name="ArBtn" Text="AR" Style="{StaticResource Ghost}"
+                                FontAttributes="Bold" FontSize="13" WidthRequest="52" HeightRequest="36" Padding="0"
+                                Clicked="OnOpenAr" />
+                        <Button Grid.Column="2" x:Name="BigBtn" Text="⛶" Style="{StaticResource Ghost}"
+                                FontSize="16" WidthRequest="44" HeightRequest="36" Padding="0"
+                                Clicked="OnChartBig" />
                     </Grid>
 
-                    <VerticalStackLayout x:Name="ChartBody" Spacing="6">
+                    <Border Padding="0" StrokeThickness="0">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <skia:SKCanvasView x:Name="Chart" HeightRequest="190" />
+                    </Border>
 
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
-                            <Button Grid.Column="0" Text="−" FontSize="16" HeightRequest="34" Padding="0"
-                                    BackgroundColor="#2a2f3a" Clicked="OnChartZoomOut" />
-                            <Button Grid.Column="1" Text="⤢ vše" FontSize="14" HeightRequest="34" Padding="0"
-                                    BackgroundColor="#2a2f3a" Clicked="OnChartFit" />
-                            <Button Grid.Column="2" Text="+" FontSize="16" HeightRequest="34" Padding="0"
-                                    BackgroundColor="#2a2f3a" Clicked="OnChartZoomIn" />
-                        </Grid>
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                        <Button Grid.Column="0" Text="−" Style="{StaticResource Ghost}" FontSize="16" HeightRequest="36" Padding="0" Clicked="OnChartZoomOut" />
+                        <Button Grid.Column="1" Text="⤢ vše" Style="{StaticResource Ghost}" FontSize="14" HeightRequest="36" Padding="0" Clicked="OnChartFit" />
+                        <Button Grid.Column="2" Text="+" Style="{StaticResource Ghost}" FontSize="16" HeightRequest="36" Padding="0" Clicked="OnChartZoomIn" />
+                    </Grid>
 
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
-                            <Button Grid.Column="0" x:Name="PlayBtn" Text="▶" FontSize="16"
-                                    WidthRequest="44" HeightRequest="34" Padding="0"
-                                    BackgroundColor="#2a2f3a" Clicked="OnPlay" />
-                            <Slider Grid.Column="1" x:Name="TimeSlider" Minimum="0" Maximum="0"
-                                    ValueChanged="OnTimeChanged" VerticalOptions="Center" />
-                        </Grid>
-
-                        <Label x:Name="TimeInfo" TextColor="#cde" FontSize="12" />
-
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
-                            <Label Grid.Column="0" x:Name="DateLbl" TextColor="#9cf" FontSize="12"
-                                   VerticalOptions="Center" WidthRequest="140" Text="📅 —" />
-                            <Slider Grid.Column="1" x:Name="DateSlider" Minimum="-30" Maximum="30" Value="0"
-                                    ValueChanged="OnPreviewDateChanged" VerticalOptions="Center" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-
-            <!-- akční panel -->
-            <Border Padding="10,8" InputTransparent="False"
-                    BackgroundColor="{AppThemeBinding Light=#F2FFFFFF, Dark=#F21B1E26}" StrokeThickness="0">
-                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                <VerticalStackLayout x:Name="Panel" Spacing="6">
-                    <Label x:Name="InfoLabel" FontSize="12" LineBreakMode="TailTruncation" MaxLines="3"
-                           TextColor="{AppThemeBinding Light=#1A1A1A, Dark=#EAEAEA}"
-                           Text="Zaměř OBJEKT na křížek → ① Objekt. Pak STANOVIŠTĚ → ② Stanoviště." />
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
-                        <ActivityIndicator x:Name="Busy" Grid.Column="0" IsRunning="False" IsVisible="False"
-                                           HeightRequest="18" WidthRequest="18" HorizontalOptions="Start" />
-                        <ProgressBar x:Name="Bar" Grid.Column="1" IsVisible="False" Progress="0"
-                                     ProgressColor="#512BD4" VerticalOptions="Center" />
+                        <Button Grid.Column="0" x:Name="PlayBtn" Text="▶" Style="{StaticResource Ghost}"
+                                FontSize="16" WidthRequest="44" HeightRequest="36" Padding="0" Clicked="OnPlay" />
+                        <Slider Grid.Column="1" x:Name="TimeSlider" Minimum="0" Maximum="0"
+                                ValueChanged="OnTimeChanged" VerticalOptions="Center" />
                     </Grid>
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button x:Name="PickBtn" Grid.Column="0" Text="① Objekt" Clicked="OnPick" />
-                        <Button x:Name="ViewBtn" Grid.Column="1" Text="② Stanoviště"
-                                Clicked="OnViewpoint" IsEnabled="False" />
-                    </Grid>
+
+                    <Label x:Name="TimeInfo" Style="{StaticResource Meta}" FontSize="12" />
                 </VerticalStackLayout>
-            </Border>
-        </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Border>
     </Grid>
 
 </ContentPage>
