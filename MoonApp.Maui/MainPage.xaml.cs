@@ -142,16 +142,20 @@ public partial class MainPage : ContentPage
         {
             // dohled aspoň k objektu, ať silueta obsahuje i jeho kopec
             double rMax = Math.Max(2000, vp.DistanceM * 1.15);
-            var page = await Task.Run(async () =>
+            var (sky, bands, bandAz) = await Task.Run(async () =>
             {
                 var dmp = await Cuzk.LoadAroundAsync(_obsLat, _obsLon, rMax + 200, 5.0, Cuzk.Dmp, DsmCache);
-                var sky = Panorama.Skyline(dmp, _obsLat, _obsLon, _settings.EyeH,
-                    20, rMax, 10, 0, 360, 0.5, progress);
-                return sky;
+                var s = Panorama.Skyline(dmp, _obsLat, _obsLon, _settings.EyeH, 20, rMax, 10, 0, 360, 0.5);
+                var (b, _, a) = Panorama.Layers(dmp, _obsLat, _obsLon, _settings.EyeH,
+                    20, rMax, 10, 0, 360, 0.5, 5, progress);
+                return (s, b, a);
             });
             var view = new ViewPage(_obsLat, _obsLon, _objLat, _objLon, _objTopZ,
-                vp.Bearing, vp.ElTargetDeg, _body, _track, page, _timeIdx);
+                vp.Bearing, vp.ElTargetDeg, _body, _track, sky, _timeIdx, bands, bandAz);
             await Navigation.PushModalAsync(view);
+            // Zjemnění metrovým rastrem (Panorama.RefineTowardAsync) je hotové v Core, ale
+            // kreslí se zatím jako plochý blok místo siluety — dokud to nesedí, radši nic
+            // než falešná hrana, podle které by se rozhodovalo o zákrytu.
         }
         catch (Exception ex) { InfoLabel.IsVisible = true; InfoLabel.Text = "Chyba: " + ex.Message; }
         finally { SetBusy(false); }

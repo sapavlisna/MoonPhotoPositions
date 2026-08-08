@@ -30,10 +30,15 @@ public partial class ViewPage : ContentPage
     // nešla přečíst; nad ní platí skutečný úhlový průměr
     const float BodyMinPx = 14;
 
+    readonly double[][] _bands;      // silueta po vzdálenostních pásmech (hloubka krajiny)
+    readonly double[] _bandAz;
+    SkylineSample[]? _fine;          // zjemněná silueta ve směru objektu
+
     public ViewPage(double obsLat, double obsLon, double objLat, double objLon, double objTop,
         double bearing, double elTarget, Body body, IReadOnlyList<MoonSample> track,
-        SkylineSample[] sky, int startIdx)
+        SkylineSample[] sky, int startIdx, double[][] bands, double[] bandAz)
     {
+        _bands = bands; _bandAz = bandAz;
         InitializeComponent();
         _obsLat = obsLat; _obsLon = obsLon; _objLat = objLat; _objLon = objLon; _objTop = objTop;
         _bearing = bearing; _elTarget = elTarget; _body = body; _track = track; _sky = sky;
@@ -146,42 +151,62 @@ public partial class ViewPage : ContentPage
         DrawScale(c, w, h, vFov);
     }
 
+    /// <summary>
+    /// Krajina se kreslí po vzdálenostních pásmech odzadu dopředu, každé svou barvou. Jedna
+    /// silueta by ukázala jen nejvyšší hranu a z kopcovité krajiny by zbyl plochý pás —
+    /// takhle je vidět, co je před čím, stejně jako na webu.
+    /// </summary>
     void DrawTerrain(SKCanvas c, int w, int h, float pxPerDeg, Func<double, float> X, Func<double, float> Y)
     {
-        if (_sky.Length == 0) return;
+        if (_bands.Length == 0 || _bandAz.Length == 0) return;
         double half = _fovDeg / 2 + 1;
-        double maxDist = Math.Max(1, _sky.Max(s => s.DistM));
-
         using var fill = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill };
-        // po svislých pruzích, aby šla každá část obarvit podle vlastní vzdálenosti — barva
-        // nese hloubku scény stejně jako na webu (blízko zelená, daleko do oranžova)
-        for (int i = 0; i < _sky.Length; i++)
+
+        for (int b = _bands.Length - 1; b >= 0; b--)   // nejvzdálenější pásmo první
         {
-            double rel = Rel(_sky[i].Az);
-            if (Math.Abs(rel) > half) continue;
-            float x0 = X(_sky[i].Az), y0 = Y(_sky[i].El);
-            float x1 = i + 1 < _sky.Length ? X(_sky[i + 1].Az) : x0 + 1;
-            if (x1 < x0) x1 = x0 + 1;
-            fill.Color = DepthColor(SmoothDist(i) / maxDist);
-            c.DrawRect(x0, y0, Math.Max(1, x1 - x0) + 1, h - y0, fill);
+            fill.Color = DepthColor(_bands.Length == 1 ? 0.5 : (double)b / (_bands.Length - 1));
+            var path = new SKPath();
+            bool open = false;
+            for (int i = 0; i < _bandAz.Length; i++)
+            {
+                if (Math.Abs(Rel(_bandAz[i])) > half) { if (open) { ClosePath(path, h, X(_bandAz[i - 1])); open = false; } continue; }
+                double el = _bands[b][i];
+                if (el <= -89) { if (open) { ClosePath(path, h, X(_bandAz[i - 1])); open = false; } continue; }
+                float x = X(_bandAz[i]), y = Y(el);
+                if (!open) { path.MoveTo(x, h); path.LineTo(x, y); open = true; }
+                else path.LineTo(x, y);
+            }
+            if (open) ClosePath(path, h, X(_bandAz[^1]));
+            c.DrawPath(path, fill);
+            path.Dispose();
+        }
+
+        // zjemněná hrana ve směru objektu — kvůli ní se sem uživatel dívá
+        if (_fine is { Length: > 0 })
+        {
+            fill.Color = DepthColor(0.62);
+            var p2 = new SKPath();
+            bool open2 = false;
+            foreach (var s in _fine)
+            {
+                if (Math.Abs(Rel(s.Az)) > half || s.El <= -89) { if (open2) { ClosePath(p2, h, X(s.Az)); open2 = false; } continue; }
+                float x = X(s.Az), y = Y(s.El);
+                if (!open2) { p2.MoveTo(x, h); p2.LineTo(x, y); open2 = true; }
+                else p2.LineTo(x, y);
+            }
+            if (open2) ClosePath(p2, h, X(_fine[^1].Az));
+            c.DrawPath(p2, fill);
+            p2.Dispose();
         }
     }
 
-    /// <summary>
-    /// Vzdálenost průměrovaná přes okolní azimuty. Sousední sloupce se v syrových datech liší
-    /// o stovky metrů (jednou keř před nosem, hned vedle vzdálený kopec) a barva by skákala
-    /// v pruzích místo aby nesla hloubku krajiny.
-    /// </summary>
-    double SmoothDist(int i)
+    static void ClosePath(SKPath p, int h, float lastX) { p.LineTo(lastX, h); p.Close(); }
+
+    /// <summary>Doplní zjemněnou siluetu ve směru objektu (dobíhá po otevření stránky).</summary>
+    public void SetFine(SkylineSample[] fine)
     {
-        const int W = 6;
-        double sum = 0; int n = 0;
-        for (int j = i - W; j <= i + W; j++)
-        {
-            if (j < 0 || j >= _sky.Length) continue;
-            sum += _sky[j].DistM; n++;
-        }
-        return n > 0 ? sum / n : _sky[i].DistM;
+        _fine = fine;
+        Canvas.InvalidateSurface();
     }
 
     /// <summary>Blízko zelená, daleko do oranžova — atmosférická perspektiva jako na webu.</summary>
