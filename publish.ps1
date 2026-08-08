@@ -40,7 +40,11 @@ $tag = "v$version"
 Write-Host "Verze $version (tag $tag)" -ForegroundColor Cyan
 
 if (git status --porcelain) { Write-Warning "Pracovní strom není čistý — vydává se stav z posledního commitu." }
-if (git tag --list $tag) { throw "Tag $tag už existuje. Zvyš ApplicationDisplayVersion v csproj." }
+# Hotové vydání se nepřepisuje, ale nedokončené (tag je, release ne — třeba když minulý
+# běh spadl na push) musí jít dokončit, ne nutit ke zvýšení verze.
+cmd /c "gh release view $tag -R sapavlisna/MoonPhotoPositions >nul 2>&1"
+if ($LASTEXITCODE -eq 0) { throw "Release $tag už existuje. Zvyš ApplicationDisplayVersion v csproj." }
+if (git tag --list $tag) { Write-Host "Tag $tag už existuje — dokončuji vydání." -ForegroundColor Yellow }
 
 # Dosud vydané verze (včetně 1.5.1) jsou podepsané ladicím klíčem Androidu — ověřeno
 # otiskem certifikátu staženého APK. Android nedovolí přepsat instalaci jiným podpisem,
@@ -94,9 +98,13 @@ $body = if ($Notes) { "$Notes`n`nInstalace: stáhni MoonApp-$version-arm64.apk (
         else { "Instalace: stáhni MoonApp-$version-arm64.apk (Android arm64)." }
 
 if ($PSCmdlet.ShouldProcess("GitHub Release $tag", "vytvořit a nahrát APK")) {
-    git tag $tag
-    git push origin $tag
-    gh release create $tag $apk --title "MoonApp $version" --notes $body
+    # git i gh píšou průběh na stderr; s ErrorActionPreference=Stop by to PowerShell 5.1
+    # vyhodnotil jako chybu a vydání by spadlo uprostřed, ačkoli všechno proběhlo
+    if (-not (git tag --list $tag)) { git tag $tag }
+    cmd /c "git push origin $tag 2>&1"
+    if ($LASTEXITCODE -ne 0) { throw "Push tagu selhal." }
+    cmd /c "gh release create $tag `"$apk`" --title `"MoonApp $version`" --notes `"$body`" 2>&1"
+    if ($LASTEXITCODE -ne 0) { throw "Vytvoření release selhalo." }
     Write-Host "Vydáno: $tag" -ForegroundColor Green
     Write-Host "Appka nabídne aktualizaci při příštím spuštění (UpdateService)." -ForegroundColor Green
 }

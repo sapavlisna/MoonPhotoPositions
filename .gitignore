@@ -21,3 +21,6 @@ obj/
 .backup_precam/
 out/
 tmp/
+
+# výstup publish.ps1
+artifacts/
