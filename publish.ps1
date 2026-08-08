@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Sestaví podepsané APK a vydá ho jako GitHub Release.
 
