@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MoonApp.Maui.WindowPage"
+             Title="Kdy odsud vidět">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="14" RowSpacing="10">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="8">
+            <Label x:Name="IntroLbl" FontSize="12.5" LineBreakMode="WordWrap"
+                   TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                    <Label Text="Od" FontSize="11"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                    <DatePicker x:Name="FromP" Format="dd.MM.yyyy" HeightRequest="46" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                    <Label Text="Do" FontSize="11"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                    <DatePicker x:Name="ToP" Format="dd.MM.yyyy" HeightRequest="46" />
+                </VerticalStackLayout>
+            </Grid>
+            <Button x:Name="GoBtn" Text="Spočítat" HeightRequest="46" CornerRadius="11"
+                    FontSize="14" Clicked="OnCompute" />
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+            <ActivityIndicator x:Name="Busy" Grid.Column="0" IsRunning="False" IsVisible="False"
+                               HeightRequest="18" WidthRequest="18" />
+            <Label x:Name="NoteLbl" Grid.Column="1" FontSize="12" VerticalOptions="Center"
+                   Text="vyber rozmezí dat a spočítej"
+                   TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+        </Grid>
+
+        <CollectionView Grid.Row="2" x:Name="List" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="10,0" HeightRequest="52" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnPickDay" />
+                        </Grid.GestureRecognizers>
+                        <Label Grid.Column="0" Text="{Binding DateText}" FontSize="14" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}" />
+                        <Label Grid.Column="1" Text="{Binding TimeText}" FontSize="15" FontFamily="monospace"
+                               FontAttributes="Bold" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource AccentL}, Dark={StaticResource AccentD}}" />
+                        <Label Grid.Column="2" Text="{Binding AltText}" FontSize="12" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button Grid.Row="3" x:Name="CloseBtn" Text="Zavřít" HeightRequest="46" CornerRadius="11"
+                Clicked="OnClose" />
+    </Grid>
+</ContentPage>

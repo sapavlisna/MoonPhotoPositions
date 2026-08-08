@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MoonApp.Maui.PoisPage"
+             Title="Body v okolí">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="14" RowSpacing="10">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="8">
+            <Label FontSize="12.5" LineBreakMode="WordWrap"
+                   TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}"
+                   Text="Najde v OpenStreetMap dominanty kolem středu mapy a z výškopisu doměří, o kolik čouhají nad krajinu. Klepnutí na položku ji nastaví jako objekt focení." />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <Picker Grid.Column="0" x:Name="RadiusP" WidthRequest="118" HeightRequest="46" Title="okruh" />
+                <Button Grid.Column="1" x:Name="SearchBtn" Text="Prohledat okolí" HeightRequest="46"
+                        CornerRadius="11" FontSize="14" Clicked="OnSearch" />
+            </Grid>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="6">
+            <Label Text="co hledat — klepnutím vypínáš kategorie" FontSize="11"
+                   TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+            <FlexLayout x:Name="CatBox" Wrap="Wrap" JustifyContent="Start" AlignItems="Center" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                <ActivityIndicator x:Name="Busy" Grid.Column="0" IsRunning="False" IsVisible="False"
+                                   HeightRequest="18" WidthRequest="18" />
+                <Label x:Name="NoteLbl" Grid.Column="1" FontSize="12" VerticalOptions="Center"
+                       Text="posuň mapu na okolí, které chceš prohledat"
+                       TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+            </Grid>
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="2" x:Name="List" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="10,0" HeightRequest="56" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnPickItem" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
+                            <Label Text="{Binding Title}" FontSize="14" LineBreakMode="TailTruncation"
+                                   TextColor="{AppThemeBinding Light={StaticResource InkL}, Dark={StaticResource InkD}}" />
+                            <Label Text="{Binding Sub}" FontSize="11"
+                                   TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="{Binding SkyText}" FontSize="13" FontAttributes="Bold"
+                               VerticalOptions="Center" TextColor="{Binding SkyColor}" />
+                        <Label Grid.Column="2" Text="{Binding DistText}" FontSize="12" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button Grid.Row="3" x:Name="CloseBtn" Text="Zavřít" HeightRequest="46" CornerRadius="11"
+                Clicked="OnClose" />
+    </Grid>
+</ContentPage>

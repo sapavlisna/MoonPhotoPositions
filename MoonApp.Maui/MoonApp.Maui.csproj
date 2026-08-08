@@ -35,8 +35,8 @@
 		<ApplicationId>com.companyname.moonapp.maui</ApplicationId>
 
 		<!-- Versions (drž v souladu s git tagem vX.Y.Z; ApplicationVersion = rostoucí build number) -->
-		<ApplicationDisplayVersion>1.5.1</ApplicationDisplayVersion>
-		<ApplicationVersion>8</ApplicationVersion>
+		<ApplicationDisplayVersion>1.6.0</ApplicationDisplayVersion>
+		<ApplicationVersion>9</ApplicationVersion>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
@@ -62,6 +62,10 @@
 		<!-- Lucide-style ikony (obarvené přes TintColor; _l = světlý motiv, _d = tmavý) -->
 		<MauiImage Include="Resources\Icons\ic_moon_l.svg" TintColor="#2563EB" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_moon_d.svg" TintColor="#4F8EF7" BaseSize="24,24" />
+		<MauiImage Include="Resources\Icons\ic_binoculars_l.svg" TintColor="#1E293B" BaseSize="24,24" />
+		<MauiImage Include="Resources\Icons\ic_binoculars_d.svg" TintColor="#E6EDF5" BaseSize="24,24" />
+		<MauiImage Include="Resources\Icons\ic_sun_l.svg" TintColor="#2563EB" BaseSize="24,24" />
+		<MauiImage Include="Resources\Icons\ic_sun_d.svg" TintColor="#4F8EF7" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_eye_l.svg" TintColor="#2563EB" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_eye_d.svg" TintColor="#4F8EF7" BaseSize="24,24" />
 		<MauiImage Include="Resources\Icons\ic_calendar_l.svg" TintColor="#1E293B" BaseSize="24,24" />

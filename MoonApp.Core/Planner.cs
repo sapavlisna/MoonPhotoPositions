@@ -1,6 +1,6 @@
 namespace MoonApp.Core;
 
-/// <summary>Analýza stanoviště: viditelnost objektu, horizont, dráha Měsíce, čas „na špici".</summary>
+/// <summary>Analýza stanoviště: viditelnost objektu, horizont, dráha tělesa, čas „na špici".</summary>
 public readonly record struct ViewpointResult(
     bool Clear, double DistanceM, double Bearing, double ElTargetDeg,
     DateTime? OnTipUtc, double? OnTipAlt,
@@ -9,14 +9,14 @@ public readonly record struct ViewpointResult(
 public static class Planner
 {
     /// <summary>
-    /// Z bodu stanoviště spočítá viditelnost vrcholu objektu (LOS), siluetu horizontu, noční
-    /// dráhu Měsíce a okamžik, kdy Měsíc „sedí" na vrcholu (az ≈ směr na objekt, alt ≈ potřebná).
+    /// Z bodu stanoviště spočítá viditelnost vrcholu objektu (LOS), siluetu horizontu, denní
+    /// dráhu tělesa a okamžik, kdy těleso „sedí" na vrcholu (az ≈ směr na objekt, alt ≈ potřebná).
     /// </summary>
     public static async Task<ViewpointResult> ViewpointAsync(
         double objLat, double objLon, double objTopZ,
         double obsLat, double obsLon, DateOnly date,
         double eyeH = 1.7, double horizonRMax = 1500, string? cacheDir = null,
-        IProgress<ProgressInfo>? progress = null)
+        IProgress<ProgressInfo>? progress = null, Body body = Body.Moon)
     {
         double dist = Geo.Distance(obsLat, obsLon, objLat, objLon);
         double bearing = Geo.Bearing(obsLat, obsLon, objLat, objLon);
@@ -36,12 +36,18 @@ public static class Planner
         var horizon = Raycast.HorizonProfile(dmp, obsLat, obsLon, eyeH, 10, horizonRMax, 5, 2.0,
             onProgress: f => progress?.Report(new("Počítám siluetu horizontu…", f)));
 
-        progress?.Report(new("Počítám dráhu Měsíce…"));
-        var localStart = new DateTime(date.Year, date.Month, date.Day, 16, 0, 0, DateTimeKind.Unspecified);
-        var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, Time.Prague);
-        var track = Astro.Track(obsLat, obsLon, utcStart, utcStart.AddHours(16), 2);
+        if (body == Body.Vis)   // režim „jen viditelnost“ — dráha ani špička nedávají smysl
+            return new(clear, dist, bearing, elTarget, null, null, horizon, []);
 
-        progress?.Report(new("Hledám čas Měsíce na špici…"));
+        // Měsíc se fotí přes noc, Slunce přes den — okno musí sedět na těleso, jinak by
+        // u Slunce vyšla samá záporná výška
+        progress?.Report(new($"Počítám dráhu {Names.Gen(body)}…"));
+        int startHour = body == Body.Sun ? 3 : 16;
+        var localStart = new DateTime(date.Year, date.Month, date.Day, startHour, 0, 0, DateTimeKind.Unspecified);
+        var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, Time.Prague);
+        var track = Astro.Track(body, obsLat, obsLon, utcStart, utcStart.AddHours(16), 2);
+
+        progress?.Report(new($"Hledám čas {Names.Gen(body)} na špici…"));
         DateTime? onTip = null; double? onAlt = null; double bestErr = double.MaxValue;
         foreach (var s in track)
         {

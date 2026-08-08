@@ -29,8 +29,8 @@ public partial class MainPage : ContentPage
     int _baseIdx;
 
     readonly PlannerSettings _settings = new();
-    int _moonClicks;                // 🥚 easter egg: 7× klik na logo
-    bool _visOnly;                  // režim „jen viditelnost objektu (bez Měsíce)"
+    Body _body = Body.Moon;         // co se plánuje: Měsíc / Slunce / jen viditelnost
+    bool _visOnly => _body == Body.Vis;
     bool _hasObj;
     double _objLat, _objLon, _objTopZ;
     double _obsLat, _obsLon;        // poslední stanoviště
@@ -90,21 +90,83 @@ public partial class MainPage : ContentPage
         DateLabelTop.Text = _settings.Date.ToString("ddd d.M.",
             System.Globalization.CultureInfo.GetCultureInfo("cs-CZ"));
 
-    // 🥚 7× klik na logo → pokrytí počítá jen viditelnost objektu z okolí (bez Měsíce).
-    void OnLogoTap(object? sender, TappedEventArgs e)
+    // Klepnutí cyklí těleso. Dřív to byl skrytý easter egg na sedmý klik — Slunce se ale
+    // fotí nad krajinou stejně často jako Měsíc, takže volba patří na povrch.
+    void OnCycleBody(object? sender, TappedEventArgs e)
     {
-        if (++_moonClicks < 7) return;
-        _moonClicks = 0;
-        _visOnly = !_visOnly;
-        bool dark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        LogoImg.Source = _visOnly
-            ? (dark ? "ic_eye_d.png" : "ic_eye_l.png")
-            : (dark ? "ic_moon_d.png" : "ic_moon_l.png");
+        _body = _body switch { Body.Moon => Body.Sun, Body.Sun => Body.Vis, _ => Body.Moon };
+        ApplyBody();
         ShowAnswerUi(false);
         InfoLabel.IsVisible = true;
-        InfoLabel.Text = _visOnly
-            ? "🥚 Režim: jen viditelnost objektu z okolí (bez Měsíce). Přepočítej ① Objekt."
-            : "Zpět k běžnému pokrytí (s Měsícem). Přepočítej ① Objekt.";
+        InfoLabel.Text = _body == Body.Vis
+            ? "Režim: jen viditelnost objektu z okolí (bez tělesa). Přepočítej ① Objekt."
+            : $"Plánuje se {Names.Nom(_body)}. Přepočítej ① Objekt / ② Stanoviště.";
+    }
+
+    void ApplyBody()
+    {
+        bool dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        LogoImg.Source = _body switch
+        {
+            Body.Sun => dark ? "ic_sun_d.png" : "ic_sun_l.png",
+            Body.Vis => dark ? "ic_eye_d.png" : "ic_eye_l.png",
+            _ => dark ? "ic_moon_d.png" : "ic_moon_l.png",
+        };
+        BodyLbl.Text = _body switch { Body.Sun => "Slunce", Body.Vis => "Vidět", _ => "Měsíc" };
+        GraphTitle.Text = _body == Body.Vis ? "Graf obzoru" : $"Graf dráhy {Names.Gen(_body)}";
+        // AR míří na Měsíc a navádět jím pohled do Slunce by bylo nebezpečné — mimo Měsíc
+        // se schová. (Zapínat ho tady nesmím: v appce je vypnuté a důvod je jinde.)
+        if (_body != Body.Moon) ArBtn.IsVisible = false;
+    }
+
+    // Hledání dominant kolem středu mapy — obdoba záložky „Body v okolí“ na webu.
+    // Výběr rovnou spustí výpočet objektu, aby se uživatel nemusel vracet a mířit křížkem.
+    async void OnOpenPois(object? sender, EventArgs e)
+    {
+        var (clat, clon) = Center(_map);
+        var page = new PoisPage(clat, clon, DsmCache);
+        await Navigation.PushModalAsync(page);
+        if (await page.PickAsync() is not { } pick) return;
+        var (mx, my) = SphericalMercator.FromLonLat(pick.Lon, pick.Lat);
+        _map.Map.Navigator.CenterOn(mx, my);
+        await PickObject(pick.Lat, pick.Lon);
+    }
+
+    // Pohled ze stanoviště v panoramatické projekci — obdoba 3D náhledu na webu.
+    async void OnOpenView(object? sender, EventArgs e)
+    {
+        if (_vp is not { } vp || !_hasObj) return;
+        SetBusy(true, "Počítám panorama…");
+        var progress = new Progress<ProgressInfo>(OnProgress);
+        try
+        {
+            // dohled aspoň k objektu, ať silueta obsahuje i jeho kopec
+            double rMax = Math.Max(2000, vp.DistanceM * 1.15);
+            var page = await Task.Run(async () =>
+            {
+                var dmp = await Cuzk.LoadAroundAsync(_obsLat, _obsLon, rMax + 200, 5.0, Cuzk.Dmp, DsmCache);
+                var sky = Panorama.Skyline(dmp, _obsLat, _obsLon, _settings.EyeH,
+                    20, rMax, 10, 0, 360, 0.5, progress);
+                return sky;
+            });
+            var view = new ViewPage(_obsLat, _obsLon, _objLat, _objLon, _objTopZ,
+                vp.Bearing, vp.ElTargetDeg, _body, _track, page, _timeIdx);
+            await Navigation.PushModalAsync(view);
+        }
+        catch (Exception ex) { InfoLabel.IsVisible = true; InfoLabel.Text = "Chyba: " + ex.Message; }
+        finally { SetBusy(false); }
+    }
+
+    // „Kdy odsud vidět“ — dny, kdy těleso projde nad objektem. Má smysl až se stanovištěm,
+    // protože potřebná výška závisí na tom, odkud se dívám.
+    async void OnOpenWindow(object? sender, EventArgs e)
+    {
+        if (_vp is null || !_hasObj) return;
+        var page = new WindowPage(_objLat, _objLon, _objTopZ, _obsLat, _obsLon, _body, _settings, DsmCache);
+        await Navigation.PushModalAsync(page);
+        if (await page.PickAsync() is not { } day) return;
+        ApplyDate(day.ToDateTime(TimeOnly.MinValue));
+        await PickViewpoint(_obsLat, _obsLon);   // verdikt pro nově zvolený den
     }
 
     async void OnOpenDatePicker(object? sender, TappedEventArgs e)
@@ -326,7 +388,8 @@ public partial class MainPage : ContentPage
             var g = await Task.Run(() => Coverage.ComputeAsync(snap.Lat, snap.Lon,
                 DateOnly.FromDateTime(_settings.Date), 1, _settings.RadiusM, _settings.ResM, _settings.EyeH,
                 Math.Max(_settings.SubjectMinH, snap.Height), _settings.AzTol, _settings.AltBand,
-                dMin: Math.Max(80, _settings.RadiusMinM), visOnly: _visOnly, cacheDir: cache, progress: progress));
+                dMin: Math.Max(80, _settings.RadiusMinM), visOnly: _visOnly, cacheDir: cache,
+                progress: progress, body: _body));
             DrawCoverage(g, snap);
             ViewBtn.IsEnabled = true;
             _vp = null; StopPlay(); ShowAnswerUi(false);
@@ -348,7 +411,8 @@ public partial class MainPage : ContentPage
         {
             string cache = DsmCache;
             var r = await Task.Run(() => Planner.ViewpointAsync(_objLat, _objLon, _objTopZ, lat, lon,
-                DateOnly.FromDateTime(_settings.Date), _settings.EyeH, cacheDir: cache, progress: progress));
+                DateOnly.FromDateTime(_settings.Date), _settings.EyeH, cacheDir: cache,
+                progress: progress, body: _body));
             _vp = r; _vpBearing = r.Bearing; _obsLat = lat; _obsLon = lon;
             DrawViewpoint(lat, lon);
             SetupChartWindow(r);
@@ -369,19 +433,20 @@ public partial class MainPage : ContentPage
                 AnswerPanel.BackgroundColor = ThemeCol("#ECFDF3", "#10261A");
                 AnswerIconBox.BackgroundColor = ThemeCol("#16A34A", "#34D399");
                 AnswerIconImg.Source = "ic_target.png";
-                AnswerEyebrow.Text = "MĚSÍC NA ŠPICI";
+                AnswerEyebrow.Text = _body == Body.Vis ? "OBJEKT VIDĚT" : $"{Names.Nom(_body).ToUpperInvariant()} NA ŠPICI";
                 AnswerEyebrow.TextColor = ThemeCol("#16A34A", "#34D399");
-                AnswerTime.FontFamily = "monospace";
+                AnswerTime.FontFamily = _body == Body.Vis ? "OpenSansSemibold" : "monospace";
                 AnswerTime.FontSize = tip == "—" ? 22 : 32;
-                AnswerTime.Text = tip == "—" ? "nevyjde dnes" : tip;
+                AnswerTime.Text = _body == Body.Vis ? "Objekt je odsud vidět"
+                    : tip == "—" ? "nevyjde dnes" : tip;
                 StatusColumn.IsVisible = true;
                 StatusLbl.Text = "✓ Vidět";
                 StatusLbl.TextColor = ThemeCol("#16A34A", "#34D399");
                 StatusSub.Text = $"potř. výška {r.ElTargetDeg:0.0}°";
-                if (tip == "—")
+                if (tip == "—" && _body != Body.Vis)
                 {
                     HintBox.IsVisible = true;
-                    HintLbl.Text = "⚠  Tento den Měsíc na špici objektu nevyjde — zkus posuvník data v grafu.";
+                    HintLbl.Text = $"⚠  Tento den {Names.Nom(_body)} na špici objektu nevyjde — zkus posuvník data v grafu.";
                 }
                 else HintBox.IsVisible = false;
             }
@@ -394,7 +459,7 @@ public partial class MainPage : ContentPage
                 AnswerEyebrow.TextColor = ThemeCol("#DC2626", "#F87171");
                 AnswerTime.FontFamily = "OpenSansSemibold";
                 AnswerTime.FontSize = 22;
-                AnswerTime.Text = "Odsud Měsíc nevyjde";
+                AnswerTime.Text = _body == Body.Vis ? "Odsud objekt není vidět" : $"Odsud {Names.Nom(_body)} nevyjde";
                 StatusColumn.IsVisible = false;
                 HintBox.IsVisible = true;
                 HintLbl.Text = $"⚠  Posuň stanoviště dál nebo zkus jiné datum — potřebná výška {r.ElTargetDeg:0.0}° je nad terénem.";
@@ -410,6 +475,8 @@ public partial class MainPage : ContentPage
         AnswerPanel.IsVisible = show;
         MetaLbl.IsVisible = show;
         GraphToggle.IsVisible = show;
+        WindowBtn.IsVisible = show && _body != Body.Vis;   // bez tělesa není co hledat v čase
+        ViewBtnPano.IsVisible = show;
         if (!show)
         {
             ChartBody.IsVisible = false;

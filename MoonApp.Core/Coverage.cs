@@ -18,8 +18,10 @@ public static class Coverage
     public static async Task<CoverageGrid> ComputeAsync(double slat, double slon, DateOnly date, int days,
         double radiusM, double resM, double eyeH, double subjectH,
         double azTol = 2, double altBand = 2, double stepMin = 5, double dMin = 80,
-        bool visOnly = false, string? cacheDir = null, IProgress<ProgressInfo>? progress = null)
+        bool visOnly = false, string? cacheDir = null, IProgress<ProgressInfo>? progress = null,
+        Body body = Body.Moon)
     {
+        if (body == Body.Vis) visOnly = true;
         progress?.Report(new("Stahuji výškopis povrchu (ČÚZK)…"));
         var dmp = await Cuzk.LoadAroundAsync(slat, slon, radiusM + 200, 5.0, Cuzk.Dmp, cacheDir);
         progress?.Report(new("Stahuji výškopis terénu (ČÚZK)…"));
@@ -36,12 +38,12 @@ public static class Coverage
             }
         double zSubj = baseZ + Math.Max(topDmp - baseZ, subjectH);
 
-        // dráha Měsíce v lokálním okně [date 00:00, +days) → UTC
-        progress?.Report(new("Počítám dráhu Měsíce…"));
+        // dráha tělesa v lokálním okně [date 00:00, +days) → UTC
+        progress?.Report(new($"Počítám dráhu {Names.Gen(body)}…"));
         var localStart = new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Unspecified);
         var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, Time.Prague);
         var utcEnd = TimeZoneInfo.ConvertTimeToUtc(localStart.AddDays(days), Time.Prague);
-        var track = Astro.Track(slat, slon, utcStart, utcEnd, stepMin);
+        var track = Astro.Track(body, slat, slon, utcStart, utcEnd, stepMin);
 
         // mřížka lat/lon
         progress?.Report(new("Sestavuji mřížku okolí…"));
@@ -73,7 +75,7 @@ public static class Coverage
         var opp = new int[ncells];
         if (!visOnly)
         {
-            progress?.Report(new("Hledám zarovnání s Měsícem…", 0));
+            progress?.Report(new($"Hledám zarovnání {Names.Ins(body)}…", 0));
             int nt = track.Count;
             for (int ti = 0; ti < nt; ti++)
             {
@@ -90,7 +92,7 @@ public static class Coverage
                     }
                 }
                 if (ti % 8 == 0 || ti == nt - 1)
-                    progress?.Report(new("Hledám zarovnání s Měsícem…", (double)(ti + 1) / nt));
+                    progress?.Report(new($"Hledám zarovnání {Names.Ins(body)}…", (double)(ti + 1) / nt));
             }
         }
 

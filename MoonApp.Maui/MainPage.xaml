@@ -7,15 +7,20 @@
 
     <Shell.TitleView>
         <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8" Padding="0,0,10,0" VerticalOptions="Center">
-            <Border Grid.Column="0" WidthRequest="34" HeightRequest="34" Padding="0" StrokeThickness="0"
+            <!-- volba tělesa: Měsíc → Slunce → jen viditelnost (stejná trojice jako na webu) -->
+            <Border Grid.Column="0" MinimumWidthRequest="44" MinimumHeightRequest="44" Padding="0" StrokeThickness="0"
                     VerticalOptions="Center"
                     BackgroundColor="{AppThemeBinding Light={StaticResource AccentBgL}, Dark={StaticResource AccentBgD}}">
-                <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                 <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnLogoTap" />
+                    <TapGestureRecognizer Tapped="OnCycleBody" />
                 </Border.GestureRecognizers>
-                <Image x:Name="LogoImg" WidthRequest="19" HeightRequest="19" HorizontalOptions="Center" VerticalOptions="Center"
-                       Source="{AppThemeBinding Light=ic_moon_l.png, Dark=ic_moon_d.png}" />
+                <VerticalStackLayout Spacing="0" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Image x:Name="LogoImg" WidthRequest="19" HeightRequest="19" HorizontalOptions="Center"
+                           Source="{AppThemeBinding Light=ic_moon_l.png, Dark=ic_moon_d.png}" />
+                    <Label x:Name="BodyLbl" Text="Měsíc" FontSize="8" FontAttributes="Bold" HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedL}, Dark={StaticResource MutedD}}" />
+                </VerticalStackLayout>
             </Border>
             <Border Grid.Column="1" Padding="12,7" StrokeThickness="0" VerticalOptions="Center"
                     BackgroundColor="{AppThemeBinding Light={StaticResource SubtleL}, Dark={StaticResource SubtleD}}">
@@ -103,12 +108,16 @@
                              BackgroundColor="{AppThemeBinding Light={StaticResource HairL}, Dark={StaticResource HairD}}" />
                 </Grid>
 
-                <!-- krokovač ① / ② -->
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <!-- krokovač ① / ② + hledání dominant v okolí -->
+                <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
                     <Button x:Name="PickBtn" Grid.Column="0" Text="① Objekt" Clicked="OnPick"
                             CornerRadius="11" HeightRequest="46" FontSize="14" Padding="0" />
                     <Button x:Name="ViewBtn" Grid.Column="1" Text="② Stanoviště" Clicked="OnViewpoint"
                             CornerRadius="11" HeightRequest="46" FontSize="14" Padding="0" />
+                    <Button x:Name="PoisBtn" Grid.Column="2" Style="{StaticResource Ghost}"
+                            ImageSource="{AppThemeBinding Light=ic_binoculars_l.png, Dark=ic_binoculars_d.png}"
+                            WidthRequest="52" HeightRequest="46" Padding="0" Clicked="OnOpenPois"
+                            ToolTipProperties.Text="Najdi zajímavé body v okolí" />
                 </Grid>
 
                 <!-- pokyny / průběh -->
@@ -162,12 +171,21 @@
                 <!-- meta řádek (souřadnice, vzdálenost, azimut) -->
                 <Label x:Name="MetaLbl" Style="{StaticResource Meta}" IsVisible="False" />
 
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0" x:Name="ViewBtnPano" Text="Pohled ze stanoviště" IsVisible="False"
+                            Style="{StaticResource Ghost}" HeightRequest="44" FontSize="13"
+                            Clicked="OnOpenView" />
+                    <Button Grid.Column="1" x:Name="WindowBtn" Text="Kdy odsud vidět" IsVisible="False"
+                            Style="{StaticResource Ghost}" HeightRequest="44" FontSize="13"
+                            Clicked="OnOpenWindow" />
+                </Grid>
+
                 <!-- rozbalovač grafu -->
                 <Grid x:Name="GraphToggle" IsVisible="False" ColumnDefinitions="*,Auto" Padding="2,4">
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnChartCollapse" />
                     </Grid.GestureRecognizers>
-                    <Label Grid.Column="0" Text="Graf dráhy Měsíce" FontSize="13" FontAttributes="Bold"
+                    <Label Grid.Column="0" x:Name="GraphTitle" Text="Graf dráhy Měsíce" FontSize="13" FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light={StaticResource AccentL}, Dark={StaticResource AccentD}}" />
                     <Label x:Name="GraphChevron" Grid.Column="1" Text="▾" FontSize="14"
                            TextColor="{AppThemeBinding Light={StaticResource AccentL}, Dark={StaticResource AccentD}}" />
